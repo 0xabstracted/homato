@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Homato Control System</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Homato Control System</h1>
+            <div class="status-container">
+                <p class="connection-status">Server: <span id="connection-indicator">Connecting...</span></p>
+                <p class="connection-status">Device: <span id="device-connection-status">Unknown</span></p>
+            </div>
+        </header>
+        
+        <div class="device-grid">
+            <div class="device-card" id="switch-card">
+                <div class="device-icon">
+                    <i class="fas fa-power-off"></i>
+                </div>
+                <div class="device-info">
+                    <h2>Main Switch</h2>
+                    <p>Controls the main power relay</p>
+                </div>
+                <div class="device-control">
+                    <label class="switch">
+                        <input type="checkbox" id="switch-control">
+                        <span class="slider round"></span>
+                    </label>
+                </div>
+                <div class="device-status">
+                    Status: <span id="switch-status">Unknown</span>
+                </div>
+            </div>
+            
+            <div class="device-card" id="light-card">
+                <div class="device-icon">
+                    <i class="fas fa-lightbulb"></i>
+                </div>
+                <div class="device-info">
+                    <h2>Light</h2>
+                    <p>Controls the light relay</p>
+                </div>
+                <div class="device-control">
+                    <label class="switch">
+                        <input type="checkbox" id="light-control">
+                        <span class="slider round"></span>
+                    </label>
+                </div>
+                <div class="device-status">
+                    Status: <span id="light-status">Unknown</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="log-container">
+            <h3>Activity Log</h3>
+            <div class="log-entries" id="log-entries">
+                <!-- Log entries will be added here dynamically -->
+            </div>
+        </div>
+    </div>
+    
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
