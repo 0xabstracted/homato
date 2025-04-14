@@ -1,4 +1,4 @@
-# node version 16 image
+# node version 20 image
 
 FROM node:20
 
@@ -8,7 +8,7 @@ WORKDIR /app
 
 # copy all the files from here to the image
 
-COPY homato-control-system/ .
+COPY . .
 
 # command to install the packages on the image
 
@@ -25,4 +25,4 @@ EXPOSE 3000
 
 # command to run the application
 
-CMD ["node", "app.js"]
+CMD ["node", "homato-control-system/app.js"]
