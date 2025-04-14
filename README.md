@@ -109,3 +109,70 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 - This project uses HiveMQ as the MQTT broker
 - Built with Node.js, Express, and Socket.IO
 - ESP8266 community for the excellent IoT libraries 
+
+
+## Logic Flow
+
+```mermaid
+graph TD
+    subgraph Frontend
+        A[Web Interface] -->|User Action| B[Socket.IO Client]
+        B -->|Emit Event| C[Backend Server]
+    end
+
+    subgraph Backend
+        C -->|MQTT Publish| D[MQTT Broker]
+        D -->|MQTT Subscribe| C
+        C -->|Socket Event| B
+    end
+
+    subgraph IoT Device
+        E[ESP8266] -->|Subscribe| D
+        D -->|Publish| E
+        E -->|Control| F[Relay Module]
+        F -->|Status| E
+        E -->|Store State| G[EEPROM]
+        G -->|Recover State| E
+    end
+
+    style A fill:#f9f,stroke:#333,stroke-width:2px
+    style D fill:#bbf,stroke:#333,stroke-width:2px
+    style E fill:#bfb,stroke:#333,stroke-width:2px
+```
+
+### Data Flow Description
+
+1. **User Interaction**
+   - User toggles a device in the web interface
+   - Socket.IO client emits control event to backend
+
+2. **Backend Processing**
+   - Server receives Socket.IO event
+   - Processes request and publishes to MQTT topic
+   - Maintains connection status and device states
+
+3. **MQTT Communication**
+   - Broker handles message routing between backend and IoT device
+   - Manages retained messages and QoS levels
+   - Handles device availability status
+
+4. **IoT Device Operation**
+   - ESP8266 receives MQTT messages
+   - Controls appropriate relay
+   - Stores state in EEPROM
+   - Reports status back through MQTT
+   - Handles power recovery and state restoration
+
+5. **Status Updates**
+   - Device publishes state changes
+   - Backend subscribes and updates clients
+   - Web interface reflects current state
+   - Activity log updated
+
+### Error Handling
+
+- Connection loss detection
+- Automatic reconnection attempts
+- State persistence during power outages
+- Command throttling to prevent relay damage
+- Device availability monitoring
