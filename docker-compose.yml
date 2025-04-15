@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - MYSQL_HOST=db
+      - MYSQL_USER=homato_user
+      - MYSQL_PASSWORD=homato_password
+      - MYSQL_DATABASE=homato_db
+      - JWT_SECRET=your_jwt_secret_key
+    depends_on:
+      - db
+    networks:
+      - homato-network
+
+  db:
+    image: mysql:8.0
+    ports:
+      - "3306:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=root_password
+      - MYSQL_DATABASE=homato_db
+      - MYSQL_USER=homato_user
+      - MYSQL_PASSWORD=homato_password
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - homato-network
+
+volumes:
+  mysql-data:
+
+networks:
+  homato-network:
+    driver: bridge 

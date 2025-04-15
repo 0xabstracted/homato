@@ -1,24 +1,27 @@
 {
-    "name": "homato-control-system",
-    "version": "1.0.0",
-    "description": "Web interface for controlling Homato IoT devices",
-    "main": "app.js",
-    "scripts": {
-      "start": "node homato-control-system/app.js",
-      "dev": "nodemon homato-control-system/app.js",
-      "test": "echo \"Error: no test specified\" && exit 1"
-    },
-    "dependencies": {
-      "cors": "^2.8.5",
-      "express": "^4.17.3",
-      "mqtt": "^4.3.7",
-      "socket.io": "^4.5.1",
-      "dotenv": "^16.0.1"
-    },
-    "devDependencies": {
-      "nodemon": "^2.0.16"
-    },
-    "engines": {
-      "node": ">=14.0.0"
-    }
+  "name": "homato-control-system",
+  "version": "1.0.0",
+  "description": "Web interface for controlling Homato IoT devices",
+  "main": "app.js",
+  "scripts": {
+    "start": "node homato-control-system/app.js",
+    "dev": "nodemon homato-control-system/app.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "bcrypt": "^5.1.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.0.1",
+    "express": "^4.17.3",
+    "jsonwebtoken": "^9.0.0",
+    "mqtt": "^4.3.7",
+    "mysql2": "^3.2.0",
+    "socket.io": "^4.5.1"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.16"
+  },
+  "engines": {
+    "node": ">=14.0.0"
   }
+}

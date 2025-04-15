@@ -6,6 +6,9 @@ const cors = require('cors');
 const socketIo = require('socket.io');
 const path = require('path');
 const fs = require('fs');
+const mysql = require('mysql2/promise');
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
 const dotenv = require('dotenv');
 
 // Load environment variables from .env file
@@ -21,10 +24,21 @@ const io = socketIo(server, {
   }
 });
 
+// MySQL Connection Pool
+const pool = mysql.createPool({
+  host: process.env.MYSQL_HOST || 'localhost',
+  user: process.env.MYSQL_USER || 'homato_user',
+  password: process.env.MYSQL_PASSWORD || 'homato_password',
+  database: process.env.MYSQL_DATABASE || 'homato_db',
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0
+});
+
 // Middleware
 app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
+// app.use(express.static(path.join(__dirname, 'public')));
 
 // Environment variables (set these with actual values or use a .env file with dotenv)
 const PORT = process.env.PORT || 3000;
@@ -248,14 +262,101 @@ io.on('connection', (socket) => {
   });
 });
 
-// API endpoints
-app.get('/api/status', (req, res) => {
-  res.json({ deviceState });
+// Authentication middleware
+const authenticateToken = async (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) {
+    return res.status(401).json({ message: 'No token provided' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const [rows] = await pool.execute(
+      'SELECT * FROM sessions WHERE token = ? AND expires_at > NOW()',
+      [token]
+    );
+
+    if (rows.length === 0) {
+      return res.status(401).json({ message: 'Invalid or expired token' });
+    }
+
+    req.user = decoded;
+    next();
+  } catch (error) {
+    return res.status(403).json({ message: 'Invalid token' });
+  }
+};
+
+// Login endpoint
+app.post('/api/auth/login', async (req, res) => {
+  const { username, password } = req.body;
+
+  try {
+    const [rows] = await pool.execute(
+      'SELECT * FROM users WHERE username = ?',
+      [username]
+    );
+
+    if (rows.length === 0) {
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
+
+    const user = rows[0];
+    const validPassword = await bcrypt.compare(password, user.password);
+
+    if (!validPassword) {
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
+
+    const token = jwt.sign({ id: user.id, username: user.username }, process.env.JWT_SECRET, { expiresIn: '24h' });
+
+    // Store session
+    await pool.execute(
+      'INSERT INTO sessions (user_id, token, expires_at) VALUES (?, ?, DATE_ADD(NOW(), INTERVAL 24 HOUR))',
+      [user.id, token]
+    );
+
+    res.json({ token });
+  } catch (error) {
+    console.error('Login error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
 });
 
-// Serve the main HTML file
+// Logout endpoint
+app.post('/api/auth/logout', authenticateToken, async (req, res) => {
+  try {
+    await pool.execute(
+      'DELETE FROM sessions WHERE user_id = ?',
+      [req.user.id]
+    );
+    res.json({ message: 'Logged out successfully' });
+  } catch (error) {
+    console.error('Logout error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// Serve login page
+app.get('/login', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'login.html'));
+});
+
+// Redirect root to login if not authenticated
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) {
+    res.redirect('/login');
+  } else {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  }
+});
+
+// Protected API endpoints
+app.get('/api/status', authenticateToken, (req, res) => {
+  res.json({ deviceState });
 });
 
 // Start the server
