@@ -1,5 +1,4 @@
-homato-control-system/node_modules/
-homato-control-system/package-lock.json
-homato-control-system/.env*
-homato-control-system/.history
+node_modules/
+.env
 .history
+package-lock.json

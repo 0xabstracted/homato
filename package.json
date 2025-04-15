@@ -4,8 +4,8 @@
     "description": "Web interface for controlling Homato IoT devices",
     "main": "app.js",
     "scripts": {
-      "start": "node app.js",
-      "dev": "nodemon app.js",
+      "start": "node homato-control-system/app.js",
+      "dev": "nodemon homato-control-system/app.js",
       "test": "echo \"Error: no test specified\" && exit 1"
     },
     "dependencies": {
