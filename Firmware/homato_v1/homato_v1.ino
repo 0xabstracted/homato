@@ -17,22 +17,46 @@ const char* mqtt_client_id = "Homato";
 // Topics for communication
 const char* mqtt_topic_switch = "home/switch";
 const char* mqtt_topic_light = "home/light";
+const char* mqtt_topic_fan = "home/fan";
+const char* mqtt_topic_tubelight = "home/tubelight";
+const char* mqtt_topic_bedlight = "home/bedlight";
+const char* mqtt_topic_falseceiling = "home/falseceiling";
+const char* mqtt_topic_ac = "home/ac";
+const char* mqtt_topic_switchport = "home/switchport";
 const char* mqtt_topic_status = "home/status";
 const char* mqtt_topic_availability = "home/availability"; // For device availability
 
 // EEPROM addresses for storing relay states
-#define EEPROM_SIZE 4
+#define EEPROM_SIZE 8
 #define SWITCH_STATE_ADDR 0
 #define LIGHT_STATE_ADDR 1
-#define EEPROM_INITIALIZED_ADDR 2
+#define FAN_STATE_ADDR 2
+#define TUBELIGHT_STATE_ADDR 3
+#define BEDLIGHT_STATE_ADDR 4
+#define FALSECEILING_STATE_ADDR 5
+#define AC_STATE_ADDR 6
+#define SWITCHPORT_STATE_ADDR 7
+#define EEPROM_INITIALIZED_ADDR 8
 
 // GPIO pins for relays
 const int switchPin = D1;
 const int lightPin = D2;
+const int fanPin = D3;
+const int tubelightPin = D4;
+const int bedlightPin = D5;
+const int falseceilingPin = D6;
+const int acPin = D7;
+const int switchportPin = D8;
 
 // Device state variables
 bool switchState = false;
 bool lightState = false;
+bool fanState = false;
+bool tubelightState = false;
+bool bedlightState = false;
+bool falseceilingState = false;
+bool acState = false;
+bool switchportState = false;
 // bool ignoreNextMqttMessage = false; // Flag to ignore self-published messages
 
 // Initialize WiFi and MQTT clients
@@ -70,10 +94,22 @@ void readStatesFromEEPROM() {
     // EEPROM not initialized, set default values
     switchState = false;
     lightState = false;
+    fanState = false;
+    tubelightState = false;
+    bedlightState = false;
+    falseceilingState = false;
+    acState = false;
+    switchportState = false;
     
     // Save default values to EEPROM
     EEPROM.write(SWITCH_STATE_ADDR, switchState ? 1 : 0);
     EEPROM.write(LIGHT_STATE_ADDR, lightState ? 1 : 0);
+    EEPROM.write(FAN_STATE_ADDR, fanState ? 1 : 0);
+    EEPROM.write(TUBELIGHT_STATE_ADDR, tubelightState ? 1 : 0);
+    EEPROM.write(BEDLIGHT_STATE_ADDR, bedlightState ? 1 : 0);
+    EEPROM.write(FALSECEILING_STATE_ADDR, falseceilingState ? 1 : 0);
+    EEPROM.write(AC_STATE_ADDR, acState ? 1 : 0);
+    EEPROM.write(SWITCHPORT_STATE_ADDR, switchportState ? 1 : 0);
     EEPROM.write(EEPROM_INITIALIZED_ADDR, 0x01); // Mark as initialized
     EEPROM.commit();
     
@@ -82,9 +118,22 @@ void readStatesFromEEPROM() {
     // Read values from EEPROM
     switchState = EEPROM.read(SWITCH_STATE_ADDR) == 1;
     lightState = EEPROM.read(LIGHT_STATE_ADDR) == 1;
+    fanState = EEPROM.read(FAN_STATE_ADDR) == 1;
+    tubelightState = EEPROM.read(TUBELIGHT_STATE_ADDR) == 1;
+    bedlightState = EEPROM.read(BEDLIGHT_STATE_ADDR) == 1;
+    falseceilingState = EEPROM.read(FALSECEILING_STATE_ADDR) == 1;
+    acState = EEPROM.read(AC_STATE_ADDR) == 1;
+    switchportState = EEPROM.read(SWITCHPORT_STATE_ADDR) == 1;
     
-    Serial.println("Read states from EEPROM: Switch=" + String(switchState ? "ON" : "OFF") + 
-                   ", Light=" + String(lightState ? "ON" : "OFF"));
+    Serial.println("Read states from EEPROM");
+    Serial.println("Switch State: " + String(switchState ? "ON" : "OFF"));
+    Serial.println("Light State: " + String(lightState ? "ON" : "OFF"));
+    Serial.println("Fan State: " + String(fanState ? "ON" : "OFF"));
+    Serial.println("Tubelight State: " + String(tubelightState ? "ON" : "OFF"));
+    Serial.println("Bedlight State: " + String(bedlightState ? "ON" : "OFF"));
+    Serial.println("Falseceiling State: " + String(falseceilingState ? "ON" : "OFF"));
+    Serial.println("AC State: " + String(acState ? "ON" : "OFF"));
+    Serial.println("Switchport State: " + String(switchportState ? "ON" : "OFF"));
   }
 }
 
@@ -92,6 +141,12 @@ void readStatesFromEEPROM() {
 void saveStatesToEEPROM() {
   EEPROM.write(SWITCH_STATE_ADDR, switchState ? 1 : 0);
   EEPROM.write(LIGHT_STATE_ADDR, lightState ? 1 : 0);
+  EEPROM.write(FAN_STATE_ADDR, fanState ? 1 : 0);
+  EEPROM.write(TUBELIGHT_STATE_ADDR, tubelightState ? 1 : 0);
+  EEPROM.write(BEDLIGHT_STATE_ADDR, bedlightState ? 1 : 0);
+  EEPROM.write(FALSECEILING_STATE_ADDR, falseceilingState ? 1 : 0);
+  EEPROM.write(AC_STATE_ADDR, acState ? 1 : 0);
+  EEPROM.write(SWITCHPORT_STATE_ADDR, switchportState ? 1 : 0);
   EEPROM.commit();
   Serial.println("Saved states to EEPROM");
 }
@@ -101,9 +156,21 @@ void applyStates() {
   // Assuming relays are active LOW, so we invert the logic
   digitalWrite(switchPin, switchState ? LOW : HIGH);
   digitalWrite(lightPin, lightState ? LOW : HIGH);
-  
-  Serial.println("Applied states: Switch=" + String(switchState ? "ON" : "OFF") + 
-                 ", Light=" + String(lightState ? "ON" : "OFF"));
+  digitalWrite(fanPin, fanState ? LOW : HIGH);
+  digitalWrite(tubelightPin, tubelightState ? LOW : HIGH);
+  digitalWrite(bedlightPin, bedlightState ? LOW : HIGH);
+  digitalWrite(falseceilingPin, falseceilingState ? LOW : HIGH);
+  digitalWrite(acPin, acState ? LOW : HIGH);
+  digitalWrite(switchportPin, switchportState ? LOW : HIGH);
+  Serial.println("Applied states to relays");
+  Serial.println("Switch State: " + String(switchState ? "ON" : "OFF"));
+  Serial.println("Light State: " + String(lightState ? "ON" : "OFF"));
+  Serial.println("Fan State: " + String(fanState ? "ON" : "OFF"));
+  Serial.println("Tubelight State: " + String(tubelightState ? "ON" : "OFF"));
+  Serial.println("Bedlight State: " + String(bedlightState ? "ON" : "OFF"));
+  Serial.println("Falseceiling State: " + String(falseceilingState ? "ON" : "OFF"));
+  Serial.println("AC State: " + String(acState ? "ON" : "OFF"));
+  Serial.println("Switchport State: " + String(switchportState ? "ON" : "OFF"));
 }
 
 // Function to publish current states
@@ -115,6 +182,12 @@ void publishStates() {
   // "ON" means the relay is energized (LOW), "OFF" means the relay is not energized (HIGH)
   client.publish(mqtt_topic_switch, switchState ? "ON" : "OFF", true);
   client.publish(mqtt_topic_light, lightState ? "ON" : "OFF", true);
+  client.publish(mqtt_topic_fan, fanState ? "ON" : "OFF", true);
+  client.publish(mqtt_topic_tubelight, tubelightState ? "ON" : "OFF", true);
+  client.publish(mqtt_topic_bedlight, bedlightState ? "ON" : "OFF", true);
+  client.publish(mqtt_topic_falseceiling, falseceilingState ? "ON" : "OFF", true);
+  client.publish(mqtt_topic_ac, acState ? "ON" : "OFF", true);
+  client.publish(mqtt_topic_switchport, switchportState ? "ON" : "OFF", true);
   client.publish(mqtt_topic_status, "States updated", false);
   client.publish(mqtt_topic_availability, "online", true);
   
@@ -142,21 +215,55 @@ void callback(char* topic, byte* payload, unsigned int length) {
   // }
 
   bool stateChanged = false;
+  bool newState = (message == "ON");
+  String topicStr = String(topic);
 
-  // Handle switch control
-  if (String(topic) == mqtt_topic_switch) {
-    bool newState = (message == "ON");
+  // Use if-else chain for better performance than multiple independent if statements
+  if (topicStr == mqtt_topic_switch) {
     if (switchState != newState) {
       switchState = newState;
       stateChanged = true;
     }
   }
-
-  // Handle light control
-  if (String(topic) == mqtt_topic_light) {
-    bool newState = (message == "ON");
+  else if (topicStr == mqtt_topic_light) {
     if (lightState != newState) {
       lightState = newState;
+      stateChanged = true;
+    }
+  }
+  else if (topicStr == mqtt_topic_fan) {
+    if (fanState != newState) {
+      fanState = newState;
+      stateChanged = true;
+    }
+  }
+  else if (topicStr == mqtt_topic_tubelight) {
+    if (tubelightState != newState) {
+      tubelightState = newState;
+      stateChanged = true;
+    }
+  }
+  else if (topicStr == mqtt_topic_bedlight) {
+    if (bedlightState != newState) {
+      bedlightState = newState;
+      stateChanged = true;
+    }
+  }
+  else if (topicStr == mqtt_topic_falseceiling) {
+    if (falseceilingState != newState) {
+      falseceilingState = newState;
+      stateChanged = true;
+    }
+  }
+  else if (topicStr == mqtt_topic_ac) {
+    if (acState != newState) {
+      acState = newState;
+      stateChanged = true;
+    }
+  }
+  else if (topicStr == mqtt_topic_switchport) {
+    if (switchportState != newState) {
+      switchportState = newState;
       stateChanged = true;
     }
   }
@@ -182,6 +289,12 @@ void reconnect() {
       // Subscribe to control topics
       client.subscribe(mqtt_topic_switch);
       client.subscribe(mqtt_topic_light);
+      client.subscribe(mqtt_topic_fan);
+      client.subscribe(mqtt_topic_tubelight);
+      client.subscribe(mqtt_topic_bedlight);
+      client.subscribe(mqtt_topic_falseceiling);
+      client.subscribe(mqtt_topic_ac);
+      client.subscribe(mqtt_topic_switchport);
       
       // Announce that we're online and publish current states
       publishStates();
@@ -201,11 +314,24 @@ void setup() {
   // Set pins to HIGH (relay off) immediately
   pinMode(switchPin, OUTPUT);
   pinMode(lightPin, OUTPUT);
+  pinMode(fanPin, OUTPUT);
+  pinMode(tubelightPin, OUTPUT);
+  pinMode(bedlightPin, OUTPUT);
+  pinMode(falseceilingPin, OUTPUT);
+  pinMode(acPin, OUTPUT);
+  pinMode(switchportPin, OUTPUT);
+  
   digitalWrite(switchPin, HIGH);
   digitalWrite(lightPin, HIGH);
+  digitalWrite(fanPin, HIGH);
+  digitalWrite(tubelightPin, HIGH);
+  digitalWrite(bedlightPin, HIGH);
+  digitalWrite(falseceilingPin, HIGH);
+  digitalWrite(acPin, HIGH);
+  digitalWrite(switchportPin, HIGH);
   
   // Initialize EEPROM
-  EEPROM.begin(EEPROM_SIZE);
+  EEPROM.begin(EEPROM_SIZE + 1); // +1 for initialized flag
   
   // Read saved states from EEPROM
   readStatesFromEEPROM();
