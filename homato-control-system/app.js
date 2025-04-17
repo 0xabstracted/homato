@@ -35,15 +35,18 @@ const MQTT_PASSWORD = process.env.MQTT_PASSWORD;
 const MQTT_CLIENT_ID = 'webapp_backend_' + Math.random().toString(16).substring(2, 8);
 
 // Number of relays per device
-const RELAYS_PER_DEVICE = 8;
+const RELAYS_PER_DEVICE = 18;
 
 // Device registry - stores all connected devices and their states
 const deviceRegistry = {};
 
+// Track connected frontend clients
+const connectedClients = new Set();
+
 // Throttling mechanism - stores pending commands and timers for each device/relay
 const pendingCommands = {};
 const deviceTimers = {};
-const throttleTime = 500; // 2 seconds
+const throttleTime = 500; // 500ms throttle time
 
 // Connect to MQTT broker
 const mqttClient = mqtt.connect(`mqtts://${MQTT_HOST}:${MQTT_PORT}`, {
@@ -58,14 +61,36 @@ const mqttClient = mqtt.connect(`mqtts://${MQTT_HOST}:${MQTT_PORT}`, {
 // Handle MQTT connection
 mqttClient.on('connect', () => {
   console.log('Connected to MQTT broker');
+  console.log(`MQTT Client ID: ${MQTT_CLIENT_ID}`);
+  console.log(`MQTT Host: ${MQTT_HOST}:${MQTT_PORT}`);
 
-  // Subscribe to all devices' relays and availability
-  mqttClient.subscribe('+/relay+');
-  mqttClient.subscribe('+/availability');
-  mqttClient.subscribe('+/status');
+  // Subscribe to each relay topic individually
+  for (let i = 1; i <= RELAYS_PER_DEVICE; i++) {
+    mqttClient.subscribe(`+/relay${i}`, { qos: 2 }, (err, granted) => {
+      if (err) {
+        console.error(`Error subscribing to relay${i} topics:`, err);
+      } else {
+        console.log(`Successfully subscribed to relay${i} topics:`, granted);
+      }
+    });
+  }
+  
+  mqttClient.subscribe('+/availability', { qos: 2 }, (err, granted) => {
+    if (err) {
+      console.error('Error subscribing to availability topics:', err);
+    } else {
+      console.log('Successfully subscribed to availability topics:', granted);
+    }
+  });
 
   // Publish initial connection message
   mqttClient.publish('server/status', 'Backend server online');
+  
+});
+
+// Debug subscription state
+mqttClient.on('subscribe', function(topic, granted) {
+  console.log(`Subscription confirmed for: ${JSON.stringify(topic)}, QoS: ${JSON.stringify(granted)}`);
 });
 
 // Process a topic to extract deviceId and relay number
@@ -108,10 +133,30 @@ function initializeDevice(deviceId) {
   return deviceRegistry[deviceId];
 }
 
+// Send device state to all connected clients
+function broadcastDeviceState(deviceId) {
+  if (deviceRegistry[deviceId] && connectedClients.size > 0) {
+    const deviceState = {
+      deviceId: deviceId,
+      online: deviceRegistry[deviceId].online,
+      status: deviceRegistry[deviceId].status,
+      relays: deviceRegistry[deviceId].relays
+    };
+    
+    io.emit('deviceState', deviceState);
+    console.log(`Broadcasted state for device ${deviceId} to ${connectedClients.size} clients`);
+  }
+}
+
 // Handle MQTT messages
 mqttClient.on('message', (topic, message) => {
   const messageStr = message.toString();
-  console.log(`Received message on ${topic}: ${messageStr}`);
+  const now = new Date();
+  const istTime = new Date(now.getTime() + (5.5 * 60 * 60 * 1000));
+  console.log(`Received message on ${topic}: ${messageStr} at ${istTime.toISOString().replace('T', ' ').substring(0, 19)}`);
+
+  // Log raw topic parts for debugging
+  console.log(`Topic parts: ${JSON.stringify(topic.split('/'))}`);
 
   const topicInfo = processTopic(topic);
   if (!topicInfo) {
@@ -120,6 +165,7 @@ mqttClient.on('message', (topic, message) => {
   }
   
   const { deviceId, endpoint } = topicInfo;
+  console.log(`Processed topic - deviceId: ${deviceId}, endpoint: ${endpoint}`);
   
   // Initialize device if it doesn't exist in registry
   const device = initializeDevice(deviceId);
@@ -138,16 +184,28 @@ mqttClient.on('message', (topic, message) => {
         connected: isOnline,
         status: device.status
       });
-      console.log(`Device ${deviceId} connection status changed to: ${isOnline ? 'connected' : 'disconnected'}`);
+      const istTime = new Date(now.getTime() + (5.5 * 60 * 60 * 1000));
+      console.log(`Device ${deviceId} connection status changed to: ${isOnline ? 'connected' : 'disconnected'} at ${istTime.toISOString().replace('T', ' ').substring(0, 19)}`);
+      
+      // If device comes online, broadcast its full state
+      if (isOnline) {
+        broadcastDeviceState(deviceId);
+      }
     }
   } else if (endpoint.startsWith('relay')) {
     // Handle relay state updates
+    console.log(`Updating relay state: ${deviceId}/${endpoint} -> ${messageStr}`);
     device.relays[endpoint] = messageStr;
     io.emit('deviceUpdate', { 
       deviceId, 
       relay: endpoint, 
       state: messageStr 
     });
+    
+    // If this is a new relay state, also broadcast the full device state
+    broadcastDeviceState(deviceId);
+  } else {
+    console.log(`Unhandled endpoint type: ${endpoint} for device ${deviceId}`);
   }
 });
 
@@ -158,7 +216,7 @@ function executeCommand(deviceId, relay) {
     const topic = `${deviceId}/${relay}`;
 
     // Publish to MQTT with QoS 1 to ensure delivery
-    mqttClient.publish(topic, state, { qos: 1 });
+    mqttClient.publish(topic, state, { qos: 2 });
 
     // Update local state
     if (deviceRegistry[deviceId]) {
@@ -213,20 +271,53 @@ mqttClient.on('close', () => {
 
 // Socket.io connection
 io.on('connection', (socket) => {
-  console.log('New client connected');
+  console.log('New Socket.io client connected');
+  
+  // Add client to connected clients set
+  connectedClients.add(socket.id);
+  console.log(`Client ${socket.id} connected. Total clients: ${connectedClients.size}`);
 
   // Send current state of all devices to newly connected client
   socket.emit('initialState', { devices: deviceRegistry });
+  
+  // Send individual device states for each device
+  Object.keys(deviceRegistry).forEach(deviceId => {
+    if (deviceRegistry[deviceId].online) {
+      socket.emit('deviceState', {
+        deviceId: deviceId,
+        online: deviceRegistry[deviceId].online,
+        status: deviceRegistry[deviceId].status,
+        relays: deviceRegistry[deviceId].relays
+      });
+    }
+  });
 
   // Handle getDevices request (for reconnection)
   socket.on('getDevices', () => {
     socket.emit('initialState', { devices: deviceRegistry });
     console.log('Client requested device list refresh');
   });
+  
+  // Handle specific device state request
+  socket.on('getDeviceState', (deviceId) => {
+    if (deviceRegistry[deviceId]) {
+      socket.emit('deviceState', {
+        deviceId: deviceId,
+        online: deviceRegistry[deviceId].online,
+        status: deviceRegistry[deviceId].status,
+        relays: deviceRegistry[deviceId].relays
+      });
+      console.log(`Client requested state for device ${deviceId}`);
+    } else {
+      socket.emit('error', { message: `Device ${deviceId} not found` });
+    }
+  });
 
   // Handle control events from frontend
   socket.on('controlDevice', (data) => {
-    console.log('Control request received:', data);
+    const now = new Date();
+    const istTime = new Date(now.getTime() + (5.5 * 60 * 60 * 1000));
+    console.log('Control request received:', data, 'at', istTime.toISOString().replace('T', ' ').substring(0, 19));
 
     if (data && data.deviceId && data.relay && data.state) {
       const { deviceId, relay, state } = data;
@@ -277,6 +368,7 @@ io.on('connection', (socket) => {
       if (!deviceTimers[deviceId][relay]) {
         console.log(`Setting up timer for ${deviceId}/${relay}`);
         deviceTimers[deviceId][relay] = setTimeout(() => executeCommand(deviceId, relay), throttleTime);
+        console.log(`Timer set for ${deviceId}/${relay} to execute in ${throttleTime}ms`);
       } else {
         console.log(`Command for ${deviceId}/${relay} queued, will execute after current throttle window`);
       }
@@ -287,7 +379,9 @@ io.on('connection', (socket) => {
 
   // Handle disconnection
   socket.on('disconnect', () => {
-    console.log('Client disconnected');
+    // Remove client from connected clients set
+    connectedClients.delete(socket.id);
+    console.log(`Client ${socket.id} disconnected. Remaining clients: ${connectedClients.size}`);
   });
 });
 
