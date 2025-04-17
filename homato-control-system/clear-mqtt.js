@@ -45,7 +45,7 @@ client.on('connect', () => {
     setTimeout(() => {
         client.end();
         console.log('All topics cleared');
-    }, 2000);
+    }, 500);
 });
 
 client.on('error', (err) => {

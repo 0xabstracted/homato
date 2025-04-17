@@ -43,7 +43,7 @@ const deviceRegistry = {};
 // Throttling mechanism - stores pending commands and timers for each device/relay
 const pendingCommands = {};
 const deviceTimers = {};
-const throttleTime = 2000; // 2 seconds
+const throttleTime = 500; // 2 seconds
 
 // Connect to MQTT broker
 const mqttClient = mqtt.connect(`mqtts://${MQTT_HOST}:${MQTT_PORT}`, {
