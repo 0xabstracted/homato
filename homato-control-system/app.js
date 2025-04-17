@@ -367,7 +367,8 @@ io.on('connection', (socket) => {
       // If there's no active timer for this relay, set one up
       if (!deviceTimers[deviceId][relay]) {
         console.log(`Setting up timer for ${deviceId}/${relay}`);
-        deviceTimers[deviceId][relay] = setTimeout(() => executeCommand(deviceId, relay), throttleTime);
+        deviceTimers[deviceId][relay] = executeCommand(deviceId, relay)   ;
+        // deviceTimers[deviceId][relay] = setTimeout(() => executeCommand(deviceId, relay), throttleTime);
         console.log(`Timer set for ${deviceId}/${relay} to execute in ${throttleTime}ms`);
       } else {
         console.log(`Command for ${deviceId}/${relay} queued, will execute after current throttle window`);
