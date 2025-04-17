@@ -13,162 +13,23 @@
             <h1>Homato Control System</h1>
             <div class="status-container">
                 <p class="connection-status">Server: <span id="connection-indicator">Connecting...</span></p>
-                <p class="connection-status">Device: <span id="device-connection-status">Unknown</span></p>
             </div>
         </header>
         
-        <div class="device-grid">
-            <div class="device-card" id="switch-card">
-                <div class="device-icon">
-                    <i class="fas fa-power-off"></i>
-                </div>
-                <div class="device-info">
-                    <h2>Main Switch</h2>
-                    <p>Controls the main power relay</p>
-                </div>
-                <div class="device-control">
-                    <label class="switch">
-                        <input type="checkbox" id="switch-control">
-                        <span class="slider round"></span>
-                    </label>
-                </div>
-                <div class="device-status">
-                    Status: <span id="switch-status">Unknown</span>
-                </div>
+        <div class="device-selector">
+            <h2>Select Device</h2>
+            <select id="device-selector">
+                <option value="">No devices available</option>
+            </select>
+            <div class="device-info-panel">
+                <p>Device ID: <span id="current-device-id">None</span></p>
+                <p>Status: <span id="device-connection-status">Unknown</span></p>
+                <p>Last Seen: <span id="device-last-seen">Never</span></p>
             </div>
-            
-            <div class="device-card" id="light-card">
-                <div class="device-icon">
-                    <i class="fas fa-lightbulb"></i>
-                </div>
-                <div class="device-info">
-                    <h2>Light</h2>
-                    <p>Controls the light relay</p>
-                </div>
-                <div class="device-control">
-                    <label class="switch">
-                        <input type="checkbox" id="light-control">
-                        <span class="slider round"></span>
-                    </label>
-                </div>
-                <div class="device-status">
-                    Status: <span id="light-status">Unknown</span>
-                </div>
-            </div>
-            
-            <div class="device-card" id="fan-card">
-                <div class="device-icon">
-                    <i class="fas fa-fan"></i>
-                </div>
-                <div class="device-info">
-                    <h2>Fan</h2>
-                    <p>Controls the fan relay</p>
-                </div>
-                <div class="device-control">
-                    <label class="switch">
-                        <input type="checkbox" id="fan-control">
-                        <span class="slider round"></span>
-                    </label>
-                </div>
-                <div class="device-status">
-                    Status: <span id="fan-status">Unknown</span>
-                </div>
-            </div>
-            
-            <div class="device-card" id="tubelight-card">
-                <div class="device-icon">
-                    <i class="fas fa-lightbulb"></i>
-                </div>
-                <div class="device-info">
-                    <h2>Tube Light</h2>
-                    <p>Controls the tube light relay</p>
-                </div>
-                <div class="device-control">
-                    <label class="switch">
-                        <input type="checkbox" id="tubelight-control">
-                        <span class="slider round"></span>
-                    </label>
-                </div>
-                <div class="device-status">
-                    Status: <span id="tubelight-status">Unknown</span>
-                </div>
-            </div>
-            
-            <div class="device-card" id="bedlight-card">
-                <div class="device-icon">
-                    <i class="fas fa-bed"></i>
-                </div>
-                <div class="device-info">
-                    <h2>Bed Light</h2>
-                    <p>Controls the bed light relay</p>
-                </div>
-                <div class="device-control">
-                    <label class="switch">
-                        <input type="checkbox" id="bedlight-control">
-                        <span class="slider round"></span>
-                    </label>
-                </div>
-                <div class="device-status">
-                    Status: <span id="bedlight-status">Unknown</span>
-                </div>
-            </div>
-            
-            <div class="device-card" id="falseceiling-card">
-                <div class="device-icon">
-                    <i class="fas fa-square-full"></i>
-                </div>
-                <div class="device-info">
-                    <h2>False Ceiling Light</h2>
-                    <p>Controls the false ceiling light relay</p>
-                </div>
-                <div class="device-control">
-                    <label class="switch">
-                        <input type="checkbox" id="falseceiling-control">
-                        <span class="slider round"></span>
-                    </label>
-                </div>
-                <div class="device-status">
-                    Status: <span id="falseceiling-status">Unknown</span>
-                </div>
-            </div>
-            
-            <div class="device-card" id="ac-card">
-                <div class="device-icon">
-                    <i class="fas fa-snowflake"></i>
-                </div>
-                <div class="device-info">
-                    <h2>AC</h2>
-                    <p>Controls the AC relay</p>
-                </div>
-                <div class="device-control">
-                    <label class="switch">
-                        <input type="checkbox" id="ac-control">
-                        <span class="slider round"></span>
-                    </label>
-                </div>
-                <div class="device-status">
-                    Status: <span id="ac-status">Unknown</span>
-                </div>
-            </div>
-            
-            <div class="device-card" id="switchport-card">
-                <div class="device-icon">
-                    <i class="fas fa-plug"></i>
-                </div>
-                <div class="device-info">
-                    <h2>Switch Port</h2>
-                    <p>Controls the switch port relay</p>
-                </div>
-                <div class="device-control">
-                    <label class="switch">
-                        <input type="checkbox" id="switchport-control">
-                        <span class="slider round"></span>
-                    </label>
-                </div>
-                <div class="device-status">
-                    Status: <span id="switchport-status">Unknown</span>
-                </div>
-            </div>
+        </div>
+        
+        <div class="device-grid" id="relay-grid">
+            <!-- Relay cards will be generated dynamically by JavaScript -->
         </div>
         
         <div class="log-container">
@@ -178,6 +39,28 @@
             </div>
         </div>
     </div>
+    
+    <!-- Relay card template (hidden) -->
+    <template id="relay-card-template">
+        <div class="device-card relay-card" id="relay-card-{relayId}">
+            <div class="device-icon">
+                <i class="fas fa-power-off"></i>
+            </div>
+            <div class="device-info">
+                <h2>Relay {relayNumber}</h2>
+                <p>Controls {relayId}</p>
+            </div>
+            <div class="device-control">
+                <label class="switch">
+                    <input type="checkbox" id="{relayId}-control" data-relay="{relayId}">
+                    <span class="slider round"></span>
+                </label>
+            </div>
+            <div class="device-status">
+                Status: <span id="{relayId}-status">Unknown</span>
+            </div>
+        </div>
+    </template>
     
     <script src="/socket.io/socket.io.js"></script>
     <script src="app.js"></script>

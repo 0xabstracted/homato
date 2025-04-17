@@ -34,57 +34,16 @@ const MQTT_USERNAME = process.env.MQTT_USERNAME;
 const MQTT_PASSWORD = process.env.MQTT_PASSWORD;
 const MQTT_CLIENT_ID = 'webapp_backend_' + Math.random().toString(16).substring(2, 8);
 
-// console.log(MQTT_HOST, MQTT_PORT, MQTT_USERNAME, MQTT_PASSWORD, MQTT_CLIENT_ID);
+// Number of relays per device
+const RELAYS_PER_DEVICE = 8;
 
-// Define MQTT topics
-const TOPICS = {
-  switch: 'home/switch',
-  light: 'home/light',
-  fan: 'home/fan',
-  tubelight: 'home/tubelight',
-  bedlight: 'home/bedlight',
-  falseceiling: 'home/falseceiling',
-  ac: 'home/ac',
-  switchport: 'home/switchport',
-  status: 'home/status',
-  availability: 'home/availability' // New topic for device availability
-};
+// Device registry - stores all connected devices and their states
+const deviceRegistry = {};
 
-// Store device states
-const deviceState = {
-  switch: 'OFF',
-  light: 'OFF',
-  fan: 'OFF',
-  tubelight: 'OFF',
-  bedlight: 'OFF',
-  falseceiling: 'OFF',
-  ac: 'OFF',
-  switchport: 'OFF',
-  deviceConnected: false // Track device connection status
-};
-
-// Throttling variables
+// Throttling mechanism - stores pending commands and timers for each device/relay
+const pendingCommands = {};
+const deviceTimers = {};
 const throttleTime = 2000; // 2 seconds
-const pendingCommands = {
-  switch: null,
-  light: null,
-  fan: null,
-  tubelight: null,
-  bedlight: null,
-  falseceiling: null,
-  ac: null,
-  switchport: null
-};
-const deviceTimers = {
-  switch: null,
-  light: null,
-  fan: null,
-  tubelight: null,
-  bedlight: null,
-  falseceiling: null,
-  ac: null,
-  switchport: null
-};
 
 // Connect to MQTT broker
 const mqttClient = mqtt.connect(`mqtts://${MQTT_HOST}:${MQTT_PORT}`, {
@@ -100,85 +59,126 @@ const mqttClient = mqtt.connect(`mqtts://${MQTT_HOST}:${MQTT_PORT}`, {
 mqttClient.on('connect', () => {
   console.log('Connected to MQTT broker');
 
-  // Subscribe to all relevant topics
-  mqttClient.subscribe(TOPICS.switch);
-  mqttClient.subscribe(TOPICS.light);
-  mqttClient.subscribe(TOPICS.fan);
-  mqttClient.subscribe(TOPICS.tubelight);
-  mqttClient.subscribe(TOPICS.bedlight);
-  mqttClient.subscribe(TOPICS.falseceiling);
-  mqttClient.subscribe(TOPICS.ac);
-  mqttClient.subscribe(TOPICS.switchport);
-  mqttClient.subscribe(TOPICS.status);
-  mqttClient.subscribe(TOPICS.availability); // Subscribe to availability topic
+  // Subscribe to all devices' relays and availability
+  mqttClient.subscribe('+/relay+');
+  mqttClient.subscribe('+/availability');
+  mqttClient.subscribe('+/status');
 
   // Publish initial connection message
-  mqttClient.publish(TOPICS.status, 'Backend server online');
+  mqttClient.publish('server/status', 'Backend server online');
 });
+
+// Process a topic to extract deviceId and relay number
+function processTopic(topic) {
+  const parts = topic.split('/');
+  if (parts.length !== 2) return null;
+  
+  const deviceId = parts[0];
+  const endpoint = parts[1];
+  
+  return { deviceId, endpoint };
+}
+
+// Initialize device structure if it doesn't exist
+function initializeDevice(deviceId) {
+  if (!deviceRegistry[deviceId]) {
+    deviceRegistry[deviceId] = {
+      relays: {},
+      online: false,
+      status: 'offline', // initial status
+      lastSeen: Date.now()
+    };
+    
+    // Initialize all relays to OFF
+    for (let i = 1; i <= RELAYS_PER_DEVICE; i++) {
+      deviceRegistry[deviceId].relays[`relay${i}`] = 'OFF';
+    }
+    
+    // Initialize throttling structures for this device
+    pendingCommands[deviceId] = {};
+    deviceTimers[deviceId] = {};
+    
+    for (let i = 1; i <= RELAYS_PER_DEVICE; i++) {
+      pendingCommands[deviceId][`relay${i}`] = null;
+      deviceTimers[deviceId][`relay${i}`] = null;
+    }
+    
+    console.log(`New device registered: ${deviceId}`);
+  }
+  return deviceRegistry[deviceId];
+}
 
 // Handle MQTT messages
 mqttClient.on('message', (topic, message) => {
   const messageStr = message.toString();
   console.log(`Received message on ${topic}: ${messageStr}`);
 
-  // Update device state based on topic
-  if (topic === TOPICS.switch) {
-    deviceState.switch = messageStr;
-    io.emit('deviceUpdate', { topic, state: messageStr });
-  } else if (topic === TOPICS.light) {
-    deviceState.light = messageStr;
-    io.emit('deviceUpdate', { topic, state: messageStr });
-  } else if (topic === TOPICS.fan) {
-    deviceState.fan = messageStr;
-    io.emit('deviceUpdate', { topic, state: messageStr });
-  } else if (topic === TOPICS.tubelight) {
-    deviceState.tubelight = messageStr;
-    io.emit('deviceUpdate', { topic, state: messageStr });
-  } else if (topic === TOPICS.bedlight) {
-    deviceState.bedlight = messageStr;
-    io.emit('deviceUpdate', { topic, state: messageStr });
-  } else if (topic === TOPICS.falseceiling) {
-    deviceState.falseceiling = messageStr;
-    io.emit('deviceUpdate', { topic, state: messageStr });
-  } else if (topic === TOPICS.ac) {
-    deviceState.ac = messageStr;
-    io.emit('deviceUpdate', { topic, state: messageStr });
-  } else if (topic === TOPICS.switchport) {
-    deviceState.switchport = messageStr;
-    io.emit('deviceUpdate', { topic, state: messageStr });
-  } else if (topic === TOPICS.availability) {
+  const topicInfo = processTopic(topic);
+  if (!topicInfo) {
+    console.log(`Invalid topic format: ${topic}`);
+    return;
+  }
+  
+  const { deviceId, endpoint } = topicInfo;
+  
+  // Initialize device if it doesn't exist in registry
+  const device = initializeDevice(deviceId);
+  
+  // Update device's lastSeen timestamp
+  device.lastSeen = Date.now();
+  
+  if (endpoint === 'availability') {
     // Handle device availability updates
-    const isConnected = messageStr === 'online';
-    if (deviceState.deviceConnected !== isConnected) {
-      deviceState.deviceConnected = isConnected;
-      io.emit('deviceConnectionUpdate', { connected: isConnected });
-      console.log(`Device connection status changed to: ${isConnected ? 'connected' : 'disconnected'}`);
+    const isOnline = messageStr === 'online';
+    if (device.online !== isOnline) {
+      device.online = isOnline;
+      device.status = isOnline ? 'online' : 'offline';
+      io.emit('deviceConnectionUpdate', { 
+        deviceId, 
+        connected: isOnline,
+        status: device.status
+      });
+      console.log(`Device ${deviceId} connection status changed to: ${isOnline ? 'connected' : 'disconnected'}`);
     }
+  } else if (endpoint.startsWith('relay')) {
+    // Handle relay state updates
+    device.relays[endpoint] = messageStr;
+    io.emit('deviceUpdate', { 
+      deviceId, 
+      relay: endpoint, 
+      state: messageStr 
+    });
   }
 });
 
 // Function to execute throttled command
-function executeCommand(device) {
-  const state = pendingCommands[device];
+function executeCommand(deviceId, relay) {
+  const state = pendingCommands[deviceId][relay];
   if (state !== null) {
-    const topic = TOPICS[device];
+    const topic = `${deviceId}/${relay}`;
 
-    // Publish to MQTT
-    mqttClient.publish(topic, state);
+    // Publish to MQTT with QoS 1 to ensure delivery
+    mqttClient.publish(topic, state, { qos: 1 });
 
     // Update local state
-    deviceState[device] = state;
+    if (deviceRegistry[deviceId]) {
+      deviceRegistry[deviceId].relays[relay] = state;
+    }
 
     // Broadcast to all clients
-    io.emit('deviceUpdate', { topic, state });
+    io.emit('deviceUpdate', { 
+      deviceId, 
+      relay, 
+      state 
+    });
 
     // Clear the pending command
-    pendingCommands[device] = null;
-    console.log(`Executed throttled command: ${device} -> ${state}`);
+    pendingCommands[deviceId][relay] = null;
+    console.log(`Executed throttled command: ${deviceId}/${relay} -> ${state}`);
   }
 
   // Clear the timer
-  deviceTimers[device] = null;
+  deviceTimers[deviceId][relay] = null;
 }
 
 // Handle MQTT reconnection
@@ -194,51 +194,94 @@ mqttClient.on('error', (err) => {
 // Handle MQTT disconnection
 mqttClient.on('close', () => {
   console.log('Disconnected from MQTT broker');
-  // When MQTT connection is lost, mark device as offline
-  if (deviceState.deviceConnected) {
-    deviceState.deviceConnected = false;
-    io.emit('deviceConnectionUpdate', { connected: false });
-    console.log('Device marked as disconnected due to MQTT disconnection');
-  }
+  
+  // Mark all devices as offline when MQTT connection is lost
+  Object.keys(deviceRegistry).forEach(deviceId => {
+    if (deviceRegistry[deviceId].online) {
+      deviceRegistry[deviceId].online = false;
+      deviceRegistry[deviceId].status = 'offline';
+      io.emit('deviceConnectionUpdate', { 
+        deviceId, 
+        connected: false,
+        status: 'offline'
+      });
+    }
+  });
+  
+  console.log('All devices marked as disconnected due to MQTT disconnection');
 });
 
 // Socket.io connection
 io.on('connection', (socket) => {
   console.log('New client connected');
 
-  // Send current state to newly connected client
-  socket.emit('initialState', deviceState);
+  // Send current state of all devices to newly connected client
+  socket.emit('initialState', { devices: deviceRegistry });
+
+  // Handle getDevices request (for reconnection)
+  socket.on('getDevices', () => {
+    socket.emit('initialState', { devices: deviceRegistry });
+    console.log('Client requested device list refresh');
+  });
 
   // Handle control events from frontend
   socket.on('controlDevice', (data) => {
     console.log('Control request received:', data);
 
-    if (data && data.device && data.state) {
-      // Only process control requests if device is connected
-      if (!deviceState.deviceConnected) {
-        socket.emit('error', { message: 'Device is offline, cannot process command' });
+    if (data && data.deviceId && data.relay && data.state) {
+      const { deviceId, relay, state } = data;
+      const stateUpper = state.toUpperCase();
+      
+      // Check if device exists
+      if (!deviceRegistry[deviceId]) {
+        socket.emit('error', { message: `Device ${deviceId} is not registered` });
+        return;
+      }
+      
+      // Check if device is online
+      if (!deviceRegistry[deviceId].online) {
+        socket.emit('error', { message: `Device ${deviceId} is offline, cannot process command` });
+        return;
+      }
+      
+      // Check if relay exists
+      if (!deviceRegistry[deviceId].relays.hasOwnProperty(relay)) {
+        socket.emit('error', { message: `Relay ${relay} does not exist on device ${deviceId}` });
         return;
       }
 
-      const device = data.device;
-      const state = data.state.toUpperCase();
-
       // If current state is already what we want, do nothing
-      if (deviceState[device] === state) {
-        console.log(`Device ${device} already in state ${state}, ignoring`);
+      if (deviceRegistry[deviceId].relays[relay] === stateUpper) {
+        console.log(`Relay ${relay} on device ${deviceId} already in state ${stateUpper}, ignoring`);
         return;
+      }
+
+      // Create throttling structures if they don't exist
+      if (!pendingCommands[deviceId]) {
+        pendingCommands[deviceId] = {};
+      }
+      if (!deviceTimers[deviceId]) {
+        deviceTimers[deviceId] = {};
+      }
+      if (!pendingCommands[deviceId][relay]) {
+        pendingCommands[deviceId][relay] = null;
+      }
+      if (!deviceTimers[deviceId][relay]) {
+        deviceTimers[deviceId][relay] = null;
       }
 
       // Store the latest command in the pending queue
-      pendingCommands[device] = state;
+      pendingCommands[deviceId][relay] = stateUpper;
 
-      // If there's no active timer for this device, set one up
-      if (!deviceTimers[device]) {
-        console.log(`Setting up timer for ${device}`);
-        deviceTimers[device] = setTimeout(() => executeCommand(device), throttleTime);
+      // If there's no active timer for this relay, set one up
+      if (!deviceTimers[deviceId][relay]) {
+        console.log(`Setting up timer for ${deviceId}/${relay}`);
+        deviceTimers[deviceId][relay] = setTimeout(() => executeCommand(deviceId, relay), throttleTime);
       } else {
-        console.log(`Command for ${device} queued, will execute after current throttle window`);
+        console.log(`Command for ${deviceId}/${relay} queued, will execute after current throttle window`);
       }
+    } else {
+      socket.emit('error', { message: 'Invalid control request' });
     }
   });
 
@@ -249,14 +292,54 @@ io.on('connection', (socket) => {
 });
 
 // API endpoints
-app.get('/api/status', (req, res) => {
-  res.json({ deviceState });
+app.get('/api/devices', (req, res) => {
+  res.json({ devices: deviceRegistry });
+});
+
+app.get('/api/devices/:deviceId', (req, res) => {
+  const { deviceId } = req.params;
+  if (deviceRegistry[deviceId]) {
+    res.json({ device: deviceRegistry[deviceId] });
+  } else {
+    res.status(404).json({ error: 'Device not found' });
+  }
 });
 
 // Serve the main HTML file
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
+
+// Device status check mechanism - mark devices as unreachable after inactivity
+const DEVICE_UNREACHABLE_TIMEOUT = 3600000; // 1 hour
+const DEVICE_CLEANUP_TIMEOUT = 7 * 24 * 3600000; // 7 days (for potential actual cleanup in the future)
+
+setInterval(() => {
+  const now = Date.now();
+  Object.keys(deviceRegistry).forEach(deviceId => {
+    const device = deviceRegistry[deviceId];
+    const inactiveTime = now - device.lastSeen;
+    
+    if (inactiveTime > DEVICE_UNREACHABLE_TIMEOUT) {
+      // If device was online, update status and notify clients
+      if (device.online || device.status !== 'unreachable') {
+        console.log(`Marking device as unreachable: ${deviceId}`);
+        device.online = false;
+        device.status = 'unreachable';
+        
+        // Notify all connected clients about status change
+        io.emit('deviceConnectionUpdate', { 
+          deviceId, 
+          connected: false,
+          status: 'unreachable' 
+        });
+      }
+      
+      // We don't delete the device, just mark it unreachable
+      // This preserves device history and allows reconnection
+    }
+  });
+}, 300000); // Check every 5 minutes
 
 // Start the server
 server.listen(PORT, () => {

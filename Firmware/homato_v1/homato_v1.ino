@@ -1,7 +1,10 @@
-#include <ESP8266WiFi.h>
+#include <WiFi.h>
 #include <WiFiClientSecure.h>
 #include <PubSubClient.h>
 #include <EEPROM.h>
+
+// Device Identifier - Unique ID for each device
+const char* DEVICE_ID = "in-000001";
 
 // WiFi credentials
 const char* ssid = "Airtel_704B";
@@ -12,52 +15,51 @@ const char* mqtt_server = "a9de91952e404a93bc1b4be0175fd299.s1.eu.hivemq.cloud";
 const char* mqtt_username = "rrdevices_RO_Plants";
 const char* mqtt_password = "RRdevices@123";
 const int mqtt_port = 8883;
-const char* mqtt_client_id = "Homato";
+char mqtt_client_id[50]; // Will be set based on DEVICE_ID
 
 // Topics for communication
-const char* mqtt_topic_switch = "home/switch";
-const char* mqtt_topic_light = "home/light";
-const char* mqtt_topic_fan = "home/fan";
-const char* mqtt_topic_tubelight = "home/tubelight";
-const char* mqtt_topic_bedlight = "home/bedlight";
-const char* mqtt_topic_falseceiling = "home/falseceiling";
-const char* mqtt_topic_ac = "home/ac";
-const char* mqtt_topic_switchport = "home/switchport";
-const char* mqtt_topic_status = "home/status";
-const char* mqtt_topic_availability = "home/availability"; // For device availability
+char mqtt_topic_relay1[50];
+char mqtt_topic_relay2[50];
+char mqtt_topic_relay3[50];
+char mqtt_topic_relay4[50];
+char mqtt_topic_relay5[50];
+char mqtt_topic_relay6[50];
+char mqtt_topic_relay7[50];
+char mqtt_topic_relay8[50];
+char mqtt_topic_status[50];
+char mqtt_topic_availability[50];
 
 // EEPROM addresses for storing relay states
 #define EEPROM_SIZE 8
-#define SWITCH_STATE_ADDR 0
-#define LIGHT_STATE_ADDR 1
-#define FAN_STATE_ADDR 2
-#define TUBELIGHT_STATE_ADDR 3
-#define BEDLIGHT_STATE_ADDR 4
-#define FALSECEILING_STATE_ADDR 5
-#define AC_STATE_ADDR 6
-#define SWITCHPORT_STATE_ADDR 7
+#define RELAY_PIN_1_STATE_ADDR 0
+#define RELAY_PIN_2_STATE_ADDR 1
+#define RELAY_PIN_3_STATE_ADDR 2
+#define RELAY_PIN_4_STATE_ADDR 3
+#define RELAY_PIN_5_STATE_ADDR 4
+#define RELAY_PIN_6_STATE_ADDR 5
+#define RELAY_PIN_7_STATE_ADDR 6
+#define RELAY_PIN_8_STATE_ADDR 7
 #define EEPROM_INITIALIZED_ADDR 8
 
-// GPIO pins for relays
-const int switchPin = D1;
-const int lightPin = D2;
-const int fanPin = D3;
-const int tubelightPin = D4;
-const int bedlightPin = D5;
-const int falseceilingPin = D6;
-const int acPin = D7;
-const int switchportPin = D8;
+// define the GPIO connected with Relays and switches
+#define RelayPin1 23  //D23
+#define RelayPin2 22  //D22
+#define RelayPin3 21  //D21
+#define RelayPin4 19  //D19
+#define RelayPin5 18  //D18
+#define RelayPin6 5   //D5
+#define RelayPin7 25  //D25
+#define RelayPin8 26  //D26
 
 // Device state variables
-bool switchState = false;
-bool lightState = false;
-bool fanState = false;
-bool tubelightState = false;
-bool bedlightState = false;
-bool falseceilingState = false;
-bool acState = false;
-bool switchportState = false;
-// bool ignoreNextMqttMessage = false; // Flag to ignore self-published messages
+bool Relay1State = false;
+bool Relay2State = false;
+bool Relay3State = false;
+bool Relay4State = false;
+bool Relay5State = false;
+bool Relay6State = false;
+bool Relay7State = false;
+bool Relay8State = false;
 
 // Initialize WiFi and MQTT clients
 WiFiClientSecure espClient;
@@ -92,61 +94,61 @@ void readStatesFromEEPROM() {
   
   if (isInitialized == 0xFF) {
     // EEPROM not initialized, set default values
-    switchState = false;
-    lightState = false;
-    fanState = false;
-    tubelightState = false;
-    bedlightState = false;
-    falseceilingState = false;
-    acState = false;
-    switchportState = false;
+    Relay1State = false;
+    Relay2State = false;
+    Relay3State = false;
+    Relay4State = false;
+    Relay5State = false;
+    Relay6State = false;
+    Relay7State = false;
+    Relay8State = false;
     
     // Save default values to EEPROM
-    EEPROM.write(SWITCH_STATE_ADDR, switchState ? 1 : 0);
-    EEPROM.write(LIGHT_STATE_ADDR, lightState ? 1 : 0);
-    EEPROM.write(FAN_STATE_ADDR, fanState ? 1 : 0);
-    EEPROM.write(TUBELIGHT_STATE_ADDR, tubelightState ? 1 : 0);
-    EEPROM.write(BEDLIGHT_STATE_ADDR, bedlightState ? 1 : 0);
-    EEPROM.write(FALSECEILING_STATE_ADDR, falseceilingState ? 1 : 0);
-    EEPROM.write(AC_STATE_ADDR, acState ? 1 : 0);
-    EEPROM.write(SWITCHPORT_STATE_ADDR, switchportState ? 1 : 0);
+    EEPROM.write(RELAY_PIN_1_STATE_ADDR, Relay1State ? 1 : 0);
+    EEPROM.write(RELAY_PIN_2_STATE_ADDR, Relay2State ? 1 : 0);
+    EEPROM.write(RELAY_PIN_3_STATE_ADDR, Relay3State ? 1 : 0);
+    EEPROM.write(RELAY_PIN_4_STATE_ADDR, Relay4State ? 1 : 0);
+    EEPROM.write(RELAY_PIN_5_STATE_ADDR, Relay5State ? 1 : 0);
+    EEPROM.write(RELAY_PIN_6_STATE_ADDR, Relay6State ? 1 : 0);
+    EEPROM.write(RELAY_PIN_7_STATE_ADDR, Relay7State ? 1 : 0);
+    EEPROM.write(RELAY_PIN_8_STATE_ADDR, Relay8State ? 1 : 0);
     EEPROM.write(EEPROM_INITIALIZED_ADDR, 0x01); // Mark as initialized
     EEPROM.commit();
     
     Serial.println("EEPROM initialized with default values");
   } else {
     // Read values from EEPROM
-    switchState = EEPROM.read(SWITCH_STATE_ADDR) == 1;
-    lightState = EEPROM.read(LIGHT_STATE_ADDR) == 1;
-    fanState = EEPROM.read(FAN_STATE_ADDR) == 1;
-    tubelightState = EEPROM.read(TUBELIGHT_STATE_ADDR) == 1;
-    bedlightState = EEPROM.read(BEDLIGHT_STATE_ADDR) == 1;
-    falseceilingState = EEPROM.read(FALSECEILING_STATE_ADDR) == 1;
-    acState = EEPROM.read(AC_STATE_ADDR) == 1;
-    switchportState = EEPROM.read(SWITCHPORT_STATE_ADDR) == 1;
+    Relay1State = EEPROM.read(RELAY_PIN_1_STATE_ADDR) == 1;
+    Relay2State = EEPROM.read(RELAY_PIN_2_STATE_ADDR) == 1;
+    Relay3State = EEPROM.read(RELAY_PIN_3_STATE_ADDR) == 1;
+    Relay4State = EEPROM.read(RELAY_PIN_4_STATE_ADDR) == 1;
+    Relay5State = EEPROM.read(RELAY_PIN_5_STATE_ADDR) == 1;
+    Relay6State = EEPROM.read(RELAY_PIN_6_STATE_ADDR) == 1;
+    Relay7State = EEPROM.read(RELAY_PIN_7_STATE_ADDR) == 1;
+    Relay8State = EEPROM.read(RELAY_PIN_8_STATE_ADDR) == 1;
     
     Serial.println("Read states from EEPROM");
-    Serial.println("Switch State: " + String(switchState ? "ON" : "OFF"));
-    Serial.println("Light State: " + String(lightState ? "ON" : "OFF"));
-    Serial.println("Fan State: " + String(fanState ? "ON" : "OFF"));
-    Serial.println("Tubelight State: " + String(tubelightState ? "ON" : "OFF"));
-    Serial.println("Bedlight State: " + String(bedlightState ? "ON" : "OFF"));
-    Serial.println("Falseceiling State: " + String(falseceilingState ? "ON" : "OFF"));
-    Serial.println("AC State: " + String(acState ? "ON" : "OFF"));
-    Serial.println("Switchport State: " + String(switchportState ? "ON" : "OFF"));
+    Serial.println("Relay1 State: " + String(Relay1State ? "ON" : "OFF"));
+    Serial.println("Relay2 State: " + String(Relay2State ? "ON" : "OFF"));
+    Serial.println("Relay3 State: " + String(Relay3State ? "ON" : "OFF"));
+    Serial.println("Relay4 State: " + String(Relay4State ? "ON" : "OFF"));
+    Serial.println("Relay5 State: " + String(Relay5State ? "ON" : "OFF"));
+    Serial.println("Relay6 State: " + String(Relay6State ? "ON" : "OFF"));
+    Serial.println("Relay7 State: " + String(Relay7State ? "ON" : "OFF"));
+    Serial.println("Relay8 State: " + String(Relay8State ? "ON" : "OFF"));
   }
 }
 
 // Function to save states to EEPROM
 void saveStatesToEEPROM() {
-  EEPROM.write(SWITCH_STATE_ADDR, switchState ? 1 : 0);
-  EEPROM.write(LIGHT_STATE_ADDR, lightState ? 1 : 0);
-  EEPROM.write(FAN_STATE_ADDR, fanState ? 1 : 0);
-  EEPROM.write(TUBELIGHT_STATE_ADDR, tubelightState ? 1 : 0);
-  EEPROM.write(BEDLIGHT_STATE_ADDR, bedlightState ? 1 : 0);
-  EEPROM.write(FALSECEILING_STATE_ADDR, falseceilingState ? 1 : 0);
-  EEPROM.write(AC_STATE_ADDR, acState ? 1 : 0);
-  EEPROM.write(SWITCHPORT_STATE_ADDR, switchportState ? 1 : 0);
+  EEPROM.write(RELAY_PIN_1_STATE_ADDR, Relay1State ? 1 : 0);
+  EEPROM.write(RELAY_PIN_2_STATE_ADDR, Relay2State ? 1 : 0);
+  EEPROM.write(RELAY_PIN_3_STATE_ADDR, Relay3State ? 1 : 0);
+  EEPROM.write(RELAY_PIN_4_STATE_ADDR, Relay4State ? 1 : 0);
+  EEPROM.write(RELAY_PIN_5_STATE_ADDR, Relay5State ? 1 : 0);
+  EEPROM.write(RELAY_PIN_6_STATE_ADDR, Relay6State ? 1 : 0);
+  EEPROM.write(RELAY_PIN_7_STATE_ADDR, Relay7State ? 1 : 0);
+  EEPROM.write(RELAY_PIN_8_STATE_ADDR, Relay8State ? 1 : 0);
   EEPROM.commit();
   Serial.println("Saved states to EEPROM");
 }
@@ -154,40 +156,37 @@ void saveStatesToEEPROM() {
 // Apply the current state to the relays
 void applyStates() {
   // Assuming relays are active LOW, so we invert the logic
-  digitalWrite(switchPin, switchState ? LOW : HIGH);
-  digitalWrite(lightPin, lightState ? LOW : HIGH);
-  digitalWrite(fanPin, fanState ? LOW : HIGH);
-  digitalWrite(tubelightPin, tubelightState ? LOW : HIGH);
-  digitalWrite(bedlightPin, bedlightState ? LOW : HIGH);
-  digitalWrite(falseceilingPin, falseceilingState ? LOW : HIGH);
-  digitalWrite(acPin, acState ? LOW : HIGH);
-  digitalWrite(switchportPin, switchportState ? LOW : HIGH);
+  digitalWrite(RelayPin1, Relay1State ? LOW : HIGH);
+  digitalWrite(RelayPin2, Relay2State ? LOW : HIGH);
+  digitalWrite(RelayPin3, Relay3State ? LOW : HIGH);
+  digitalWrite(RelayPin4, Relay4State ? LOW : HIGH);
+  digitalWrite(RelayPin5, Relay5State ? LOW : HIGH);
+  digitalWrite(RelayPin6, Relay6State ? LOW : HIGH);
+  digitalWrite(RelayPin7, Relay7State ? LOW : HIGH);
+  digitalWrite(RelayPin8, Relay8State ? LOW : HIGH);
   Serial.println("Applied states to relays");
-  Serial.println("Switch State: " + String(switchState ? "ON" : "OFF"));
-  Serial.println("Light State: " + String(lightState ? "ON" : "OFF"));
-  Serial.println("Fan State: " + String(fanState ? "ON" : "OFF"));
-  Serial.println("Tubelight State: " + String(tubelightState ? "ON" : "OFF"));
-  Serial.println("Bedlight State: " + String(bedlightState ? "ON" : "OFF"));
-  Serial.println("Falseceiling State: " + String(falseceilingState ? "ON" : "OFF"));
-  Serial.println("AC State: " + String(acState ? "ON" : "OFF"));
-  Serial.println("Switchport State: " + String(switchportState ? "ON" : "OFF"));
+  Serial.println("Relay1 State: " + String(Relay1State ? "ON" : "OFF"));
+  Serial.println("Relay2 State: " + String(Relay2State ? "ON" : "OFF"));
+  Serial.println("Relay3 State: " + String(Relay3State ? "ON" : "OFF"));
+  Serial.println("Relay4 State: " + String(Relay4State ? "ON" : "OFF"));
+  Serial.println("Relay5 State: " + String(Relay5State ? "ON" : "OFF"));
+  Serial.println("Relay6 State: " + String(Relay6State ? "ON" : "OFF"));
+  Serial.println("Relay7 State: " + String(Relay7State ? "ON" : "OFF"));
+  Serial.println("Relay8 State: " + String(Relay8State ? "ON" : "OFF"));
 }
 
 // Function to publish current states
 void publishStates() {
-  // Set flag to ignore the next MQTT message since it's our own publish
-  // ignoreNextMqttMessage = true;
-  
   // When relays are active LOW, we need to invert the state for the MQTT message
   // "ON" means the relay is energized (LOW), "OFF" means the relay is not energized (HIGH)
-  client.publish(mqtt_topic_switch, switchState ? "ON" : "OFF", true);
-  client.publish(mqtt_topic_light, lightState ? "ON" : "OFF", true);
-  client.publish(mqtt_topic_fan, fanState ? "ON" : "OFF", true);
-  client.publish(mqtt_topic_tubelight, tubelightState ? "ON" : "OFF", true);
-  client.publish(mqtt_topic_bedlight, bedlightState ? "ON" : "OFF", true);
-  client.publish(mqtt_topic_falseceiling, falseceilingState ? "ON" : "OFF", true);
-  client.publish(mqtt_topic_ac, acState ? "ON" : "OFF", true);
-  client.publish(mqtt_topic_switchport, switchportState ? "ON" : "OFF", true);
+  client.publish(mqtt_topic_relay1, Relay1State ? "ON" : "OFF", true);
+  client.publish(mqtt_topic_relay2, Relay2State ? "ON" : "OFF", true);
+  client.publish(mqtt_topic_relay3, Relay3State ? "ON" : "OFF", true);
+  client.publish(mqtt_topic_relay4, Relay4State ? "ON" : "OFF", true);
+  client.publish(mqtt_topic_relay5, Relay5State ? "ON" : "OFF", true);
+  client.publish(mqtt_topic_relay6, Relay6State ? "ON" : "OFF", true);
+  client.publish(mqtt_topic_relay7, Relay7State ? "ON" : "OFF", true);
+  client.publish(mqtt_topic_relay8, Relay8State ? "ON" : "OFF", true);
   client.publish(mqtt_topic_status, "States updated", false);
   client.publish(mqtt_topic_availability, "online", true);
   
@@ -207,63 +206,56 @@ void callback(char* topic, byte* payload, unsigned int length) {
   }
   Serial.println(message);
 
-  // // Ignore message if flag is set (our own message)
-  // if (ignoreNextMqttMessage) {
-  //   ignoreNextMqttMessage = false;
-  //   Serial.println("Ignoring self-published message");
-  //   return;
-  // }
-
   bool stateChanged = false;
   bool newState = (message == "ON");
   String topicStr = String(topic);
 
   // Use if-else chain for better performance than multiple independent if statements
-  if (topicStr == mqtt_topic_switch) {
-    if (switchState != newState) {
-      switchState = newState;
+  if (topicStr == mqtt_topic_relay1) {
+    if (Relay1State != newState) {
+      Relay1State = newState;
       stateChanged = true;
     }
   }
-  else if (topicStr == mqtt_topic_light) {
-    if (lightState != newState) {
-      lightState = newState;
+  else if (topicStr == mqtt_topic_relay2) {
+    if (Relay2State != newState) {
+      Relay2State = newState;
       stateChanged = true;
     }
   }
-  else if (topicStr == mqtt_topic_fan) {
-    if (fanState != newState) {
-      fanState = newState;
+  else if (topicStr == mqtt_topic_relay3) {
+    if (Relay3State != newState) {
+      Relay3State = newState;
       stateChanged = true;
     }
   }
-  else if (topicStr == mqtt_topic_tubelight) {
-    if (tubelightState != newState) {
-      tubelightState = newState;
+  else if (topicStr == mqtt_topic_relay4) {
+    if (Relay4State != newState) {
+      Relay4State = newState;
       stateChanged = true;
     }
   }
-  else if (topicStr == mqtt_topic_bedlight) {
-    if (bedlightState != newState) {
-      bedlightState = newState;
+  else if (topicStr == mqtt_topic_relay5) {
+    if (Relay5State != newState) {
+      Relay5State = newState;
       stateChanged = true;
     }
   }
-  else if (topicStr == mqtt_topic_falseceiling) {
-    if (falseceilingState != newState) {
-      falseceilingState = newState;
+  else if (topicStr == mqtt_topic_relay6) {
+    if (Relay6State != newState) {
+      Relay6State = newState;
       stateChanged = true;
     }
   }
-  else if (topicStr == mqtt_topic_ac) {
-    if (acState != newState) {
-      acState = newState;
+  else if (topicStr == mqtt_topic_relay7) {
+    if (Relay7State != newState) {
+      Relay7State = newState;
       stateChanged = true;
     }
   }
-  else if (topicStr == mqtt_topic_switchport) {
-    if (switchportState != newState) {
-      switchportState = newState;
+  else if (topicStr == mqtt_topic_relay8) {
+    if (Relay8State != newState) {
+      Relay8State = newState;
       stateChanged = true;
     }
   }
@@ -287,14 +279,14 @@ void reconnect() {
       Serial.println("connected");
       
       // Subscribe to control topics
-      client.subscribe(mqtt_topic_switch);
-      client.subscribe(mqtt_topic_light);
-      client.subscribe(mqtt_topic_fan);
-      client.subscribe(mqtt_topic_tubelight);
-      client.subscribe(mqtt_topic_bedlight);
-      client.subscribe(mqtt_topic_falseceiling);
-      client.subscribe(mqtt_topic_ac);
-      client.subscribe(mqtt_topic_switchport);
+      client.subscribe(mqtt_topic_relay1);
+      client.subscribe(mqtt_topic_relay2);
+      client.subscribe(mqtt_topic_relay3);
+      client.subscribe(mqtt_topic_relay4);
+      client.subscribe(mqtt_topic_relay5);
+      client.subscribe(mqtt_topic_relay6);
+      client.subscribe(mqtt_topic_relay7);
+      client.subscribe(mqtt_topic_relay8);
       
       // Announce that we're online and publish current states
       publishStates();
@@ -307,28 +299,51 @@ void reconnect() {
   }
 }
 
+// Function to initialize MQTT topics with device ID
+void initMQTTTopics() {
+  // Format: DEVICE_ID/endpoint
+  sprintf(mqtt_topic_relay1, "%s/relay1", DEVICE_ID);
+  sprintf(mqtt_topic_relay2, "%s/relay2", DEVICE_ID);
+  sprintf(mqtt_topic_relay3, "%s/relay3", DEVICE_ID);
+  sprintf(mqtt_topic_relay4, "%s/relay4", DEVICE_ID);
+  sprintf(mqtt_topic_relay5, "%s/relay5", DEVICE_ID);
+  sprintf(mqtt_topic_relay6, "%s/relay6", DEVICE_ID);
+  sprintf(mqtt_topic_relay7, "%s/relay7", DEVICE_ID);
+  sprintf(mqtt_topic_relay8, "%s/relay8", DEVICE_ID);
+  sprintf(mqtt_topic_status, "%s/status", DEVICE_ID);
+  sprintf(mqtt_topic_availability, "%s/availability", DEVICE_ID);
+  
+  Serial.println("MQTT topics initialized with Device ID: " + String(DEVICE_ID));
+}
+
 void setup() {
   Serial.begin(115200);
   delay(100);
   
-  // Set pins to HIGH (relay off) immediately
-  pinMode(switchPin, OUTPUT);
-  pinMode(lightPin, OUTPUT);
-  pinMode(fanPin, OUTPUT);
-  pinMode(tubelightPin, OUTPUT);
-  pinMode(bedlightPin, OUTPUT);
-  pinMode(falseceilingPin, OUTPUT);
-  pinMode(acPin, OUTPUT);
-  pinMode(switchportPin, OUTPUT);
+  // Initialize MQTT client ID with DEVICE_ID
+  sprintf(mqtt_client_id, "Homato_%s", DEVICE_ID);
   
-  digitalWrite(switchPin, HIGH);
-  digitalWrite(lightPin, HIGH);
-  digitalWrite(fanPin, HIGH);
-  digitalWrite(tubelightPin, HIGH);
-  digitalWrite(bedlightPin, HIGH);
-  digitalWrite(falseceilingPin, HIGH);
-  digitalWrite(acPin, HIGH);
-  digitalWrite(switchportPin, HIGH);
+  // Initialize MQTT topics
+  initMQTTTopics();
+  
+  // Set pins to HIGH (relay off) immediately
+  pinMode(RelayPin1, OUTPUT);
+  pinMode(RelayPin2, OUTPUT);
+  pinMode(RelayPin3, OUTPUT);
+  pinMode(RelayPin4, OUTPUT);
+  pinMode(RelayPin5, OUTPUT);
+  pinMode(RelayPin6, OUTPUT);
+  pinMode(RelayPin7, OUTPUT);
+  pinMode(RelayPin8, OUTPUT);
+  
+  digitalWrite(RelayPin1, HIGH);
+  digitalWrite(RelayPin2, HIGH);
+  digitalWrite(RelayPin3, HIGH);
+  digitalWrite(RelayPin4, HIGH);
+  digitalWrite(RelayPin5, HIGH);
+  digitalWrite(RelayPin6, HIGH);
+  digitalWrite(RelayPin7, HIGH);
+  digitalWrite(RelayPin8, HIGH);
   
   // Initialize EEPROM
   EEPROM.begin(EEPROM_SIZE + 1); // +1 for initialized flag
