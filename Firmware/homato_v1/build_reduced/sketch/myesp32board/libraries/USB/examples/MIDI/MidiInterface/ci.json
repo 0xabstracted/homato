@@ -1,0 +1,6 @@
+#line 1 "/Users/bhargavveepuri/Homato/v1/homato/Firmware/homato_v1/myesp32board/libraries/USB/examples/MIDI/MidiInterface/ci.json"
+{
+  "requires": [
+    "CONFIG_SOC_USB_OTG_SUPPORTED=y"
+  ]
+}

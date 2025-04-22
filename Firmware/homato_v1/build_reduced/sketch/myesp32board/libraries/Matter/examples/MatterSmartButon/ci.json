@@ -1,0 +1,8 @@
+#line 1 "/Users/bhargavveepuri/Homato/v1/homato/Firmware/homato_v1/myesp32board/libraries/Matter/examples/MatterSmartButon/ci.json"
+{
+  "fqbn_append": "PartitionScheme=huge_app",
+  "requires": [
+    "CONFIG_SOC_WIFI_SUPPORTED=y",
+    "CONFIG_ESP_MATTER_ENABLE_DATA_MODEL=y"
+  ]
+}

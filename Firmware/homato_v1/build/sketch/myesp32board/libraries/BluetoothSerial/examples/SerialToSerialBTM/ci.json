@@ -1,0 +1,7 @@
+#line 1 "/Users/bhargavveepuri/Homato/v1/homato/Firmware/homato_v1/myesp32board/libraries/BluetoothSerial/examples/SerialToSerialBTM/ci.json"
+{
+  "fqbn_append": "PartitionScheme=huge_app",
+  "requires": [
+    "CONFIG_BT_SPP_ENABLED=y"
+  ]
+}

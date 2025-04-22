@@ -1,0 +1,167 @@
+[
+  {
+    "Sourcefile": null,
+    "Include": "",
+    "Includepath": "/Users/bhargavveepuri/Library/Arduino15/packages/esp32/hardware/esp32/3.2.0/cores/esp32"
+  },
+  {
+    "Sourcefile": null,
+    "Include": "",
+    "Includepath": "/Users/bhargavveepuri/Library/Arduino15/packages/esp32/hardware/esp32/3.2.0/variants/doitESP32devkitV1"
+  },
+  {
+    "Sourcefile": "/Users/bhargavveepuri/Homato/v1/homato/Firmware/homato_v1/build_reduced/sketch/homato_v1.ino.cpp",
+    "Include": "WiFi.h",
+    "Includepath": "/Users/bhargavveepuri/Library/Arduino15/packages/esp32/hardware/esp32/3.2.0/libraries/WiFi/src"
+  },
+  {
+    "Sourcefile": "/Users/bhargavveepuri/Homato/v1/homato/Firmware/homato_v1/build_reduced/sketch/homato_v1.ino.cpp",
+    "Include": "Network.h",
+    "Includepath": "/Users/bhargavveepuri/Library/Arduino15/packages/esp32/hardware/esp32/3.2.0/libraries/Network/src"
+  },
+  {
+    "Sourcefile": "/Users/bhargavveepuri/Homato/v1/homato/Firmware/homato_v1/build_reduced/sketch/homato_v1.ino.cpp",
+    "Include": "WiFiClientSecure.h",
+    "Includepath": "/Users/bhargavveepuri/Library/Arduino15/packages/esp32/hardware/esp32/3.2.0/libraries/NetworkClientSecure/src"
+  },
+  {
+    "Sourcefile": "/Users/bhargavveepuri/Homato/v1/homato/Firmware/homato_v1/build_reduced/sketch/homato_v1.ino.cpp",
+    "Include": "PubSubClient.h",
+    "Includepath": "/Users/bhargavveepuri/Documents/Arduino/libraries/PubSubClient/src"
+  },
+  {
+    "Sourcefile": "/Users/bhargavveepuri/Homato/v1/homato/Firmware/homato_v1/build_reduced/sketch/homato_v1.ino.cpp",
+    "Include": "EEPROM.h",
+    "Includepath": "/Users/bhargavveepuri/Library/Arduino15/packages/esp32/hardware/esp32/3.2.0/libraries/EEPROM/src"
+  },
+  {
+    "Sourcefile": "/Users/bhargavveepuri/Homato/v1/homato/Firmware/homato_v1/build_reduced/sketch/homato_v1.ino.cpp",
+    "Include": "DHT.h",
+    "Includepath": "/Users/bhargavveepuri/Documents/Arduino/libraries/DHT_sensor_library"
+  },
+  {
+    "Sourcefile": "/Users/bhargavveepuri/Homato/v1/homato/Firmware/homato_v1/build_reduced/sketch/homato_v1.ino.cpp",
+    "Include": "Preferences.h",
+    "Includepath": "/Users/bhargavveepuri/Library/Arduino15/packages/esp32/hardware/esp32/3.2.0/libraries/Preferences/src"
+  },
+  {
+    "Sourcefile": "/Users/bhargavveepuri/Homato/v1/homato/Firmware/homato_v1/build_reduced/sketch/homato_v1.ino.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "/Users/bhargavveepuri/Library/Arduino15/packages/esp32/hardware/esp32/3.2.0/libraries/WiFi/src/AP.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "/Users/bhargavveepuri/Library/Arduino15/packages/esp32/hardware/esp32/3.2.0/libraries/WiFi/src/STA.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "/Users/bhargavveepuri/Library/Arduino15/packages/esp32/hardware/esp32/3.2.0/libraries/WiFi/src/WiFi.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "/Users/bhargavveepuri/Library/Arduino15/packages/esp32/hardware/esp32/3.2.0/libraries/WiFi/src/WiFiAP.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "/Users/bhargavveepuri/Library/Arduino15/packages/esp32/hardware/esp32/3.2.0/libraries/WiFi/src/WiFiGeneric.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "/Users/bhargavveepuri/Library/Arduino15/packages/esp32/hardware/esp32/3.2.0/libraries/WiFi/src/WiFiMulti.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "/Users/bhargavveepuri/Library/Arduino15/packages/esp32/hardware/esp32/3.2.0/libraries/WiFi/src/WiFiSTA.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "/Users/bhargavveepuri/Library/Arduino15/packages/esp32/hardware/esp32/3.2.0/libraries/WiFi/src/WiFiScan.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "/Users/bhargavveepuri/Library/Arduino15/packages/esp32/hardware/esp32/3.2.0/libraries/Network/src/NetworkClient.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "/Users/bhargavveepuri/Library/Arduino15/packages/esp32/hardware/esp32/3.2.0/libraries/Network/src/NetworkEvents.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "/Users/bhargavveepuri/Library/Arduino15/packages/esp32/hardware/esp32/3.2.0/libraries/Network/src/NetworkInterface.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "/Users/bhargavveepuri/Library/Arduino15/packages/esp32/hardware/esp32/3.2.0/libraries/Network/src/NetworkManager.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "/Users/bhargavveepuri/Library/Arduino15/packages/esp32/hardware/esp32/3.2.0/libraries/Network/src/NetworkServer.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "/Users/bhargavveepuri/Library/Arduino15/packages/esp32/hardware/esp32/3.2.0/libraries/Network/src/NetworkUdp.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "/Users/bhargavveepuri/Library/Arduino15/packages/esp32/hardware/esp32/3.2.0/libraries/NetworkClientSecure/src/NetworkClientSecure.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "/Users/bhargavveepuri/Library/Arduino15/packages/esp32/hardware/esp32/3.2.0/libraries/NetworkClientSecure/src/ssl_client.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "/Users/bhargavveepuri/Documents/Arduino/libraries/PubSubClient/src/PubSubClient.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "/Users/bhargavveepuri/Library/Arduino15/packages/esp32/hardware/esp32/3.2.0/libraries/EEPROM/src/EEPROM.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "/Users/bhargavveepuri/Documents/Arduino/libraries/DHT_sensor_library/DHT.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "/Users/bhargavveepuri/Documents/Arduino/libraries/DHT_sensor_library/DHT_U.cpp",
+    "Include": "Adafruit_Sensor.h",
+    "Includepath": "/Users/bhargavveepuri/Documents/Arduino/libraries/Adafruit_Unified_Sensor"
+  },
+  {
+    "Sourcefile": "/Users/bhargavveepuri/Documents/Arduino/libraries/DHT_sensor_library/DHT_U.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "/Users/bhargavveepuri/Library/Arduino15/packages/esp32/hardware/esp32/3.2.0/libraries/Preferences/src/Preferences.cpp",
+    "Include": "",
+    "Includepath": null
+  },
+  {
+    "Sourcefile": "/Users/bhargavveepuri/Documents/Arduino/libraries/Adafruit_Unified_Sensor/Adafruit_Sensor.cpp",
+    "Include": "",
+    "Includepath": null
+  }
+]

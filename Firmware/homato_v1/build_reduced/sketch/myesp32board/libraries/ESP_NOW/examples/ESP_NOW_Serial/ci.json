@@ -1,0 +1,6 @@
+#line 1 "/Users/bhargavveepuri/Homato/v1/homato/Firmware/homato_v1/myesp32board/libraries/ESP_NOW/examples/ESP_NOW_Serial/ci.json"
+{
+  "requires": [
+    "CONFIG_SOC_WIFI_SUPPORTED=y"
+  ]
+}

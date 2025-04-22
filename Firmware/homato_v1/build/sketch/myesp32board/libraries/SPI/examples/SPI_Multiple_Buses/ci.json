@@ -1,0 +1,6 @@
+#line 1 "/Users/bhargavveepuri/Homato/v1/homato/Firmware/homato_v1/myesp32board/libraries/SPI/examples/SPI_Multiple_Buses/ci.json"
+{
+  "requires": [
+    "CONFIG_SOC_SPI_PERIPH_NUM=[2-9]"
+  ]
+}

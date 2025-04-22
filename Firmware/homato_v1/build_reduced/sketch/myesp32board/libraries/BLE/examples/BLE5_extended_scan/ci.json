@@ -1,0 +1,7 @@
+#line 1 "/Users/bhargavveepuri/Homato/v1/homato/Firmware/homato_v1/myesp32board/libraries/BLE/examples/BLE5_extended_scan/ci.json"
+{
+  "fqbn_append": "PartitionScheme=huge_app",
+  "requires": [
+    "CONFIG_SOC_BLE_50_SUPPORTED=y"
+  ]
+}

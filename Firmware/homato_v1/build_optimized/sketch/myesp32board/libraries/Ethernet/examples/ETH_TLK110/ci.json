@@ -1,0 +1,6 @@
+#line 1 "/Users/bhargavveepuri/Homato/v1/homato/Firmware/homato_v1/myesp32board/libraries/Ethernet/examples/ETH_TLK110/ci.json"
+{
+  "requires": [
+    "CONFIG_ETH_USE_ESP32_EMAC=y"
+  ]
+}

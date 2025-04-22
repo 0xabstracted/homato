@@ -1,0 +1,7 @@
+#line 1 "/Users/bhargavveepuri/Homato/v1/homato/Firmware/homato_v1/myesp32board/libraries/WebServer/examples/HttpBasicAuthSHA1/ci.json"
+{
+  "requires_any": [
+    "CONFIG_SOC_WIFI_SUPPORTED=y",
+    "CONFIG_ESP_WIFI_REMOTE_ENABLED=y"
+  ]
+}

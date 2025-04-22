@@ -1,0 +1,11 @@
+#line 1 "/Users/bhargavveepuri/Homato/v1/homato/Firmware/homato_v1/myesp32board/libraries/ESP32/examples/HWCDC_Events/ci.json"
+{
+  "fqbn": {
+    "esp32s3": [
+      "espressif:esp32:esp32s3:USBMode=hwcdc,PartitionScheme=huge_app,FlashMode=dio"
+    ]
+  },
+  "requires": [
+    "CONFIG_SOC_USB_SERIAL_JTAG_SUPPORTED=y"
+  ]
+}

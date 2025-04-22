@@ -1,0 +1,7 @@
+#line 1 "/Users/bhargavveepuri/Homato/v1/homato/Firmware/homato_v1/myesp32board/libraries/Zigbee/examples/Zigbee_Range_Extender/ci.json"
+{
+  "fqbn_append": "PartitionScheme=zigbee_zczr,ZigbeeMode=zczr",
+  "requires": [
+    "CONFIG_ZB_ENABLED=y"
+  ]
+}

@@ -1,0 +1,8 @@
+#line 1 "/Users/bhargavveepuri/Homato/v1/homato/Firmware/homato_v1/myesp32board/libraries/ESP32/examples/DeepSleep/TouchWakeUp/ci.json"
+{
+  "targets": {
+    "esp32c3": false,
+    "esp32c6": false,
+    "esp32h2": false
+  }
+}

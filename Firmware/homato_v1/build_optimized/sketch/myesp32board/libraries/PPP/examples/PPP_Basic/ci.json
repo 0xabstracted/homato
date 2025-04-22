@@ -1,0 +1,6 @@
+#line 1 "/Users/bhargavveepuri/Homato/v1/homato/Firmware/homato_v1/myesp32board/libraries/PPP/examples/PPP_Basic/ci.json"
+{
+  "requires": [
+    "CONFIG_LWIP_PPP_SUPPORT=y"
+  ]
+}

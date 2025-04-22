@@ -1,0 +1,11 @@
+#line 1 "/Users/bhargavveepuri/Homato/v1/homato/Firmware/homato_v1/myesp32board/libraries/ESP32/examples/DeepSleep/SmoothBlink_ULP_Code/ci.json"
+{
+  "targets": {
+    "esp32c3": false,
+    "esp32c6": false,
+    "esp32h2": false,
+    "esp32p4": false,
+    "esp32s2": false,
+    "esp32s3": false
+  }
+}

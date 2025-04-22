@@ -1,0 +1,11 @@
+#line 1 "/Users/bhargavveepuri/Homato/v1/homato/Firmware/homato_v1/myesp32board/libraries/Zigbee/examples/Zigbee_Gateway/ci.json"
+{
+  "fqbn_append": "PartitionScheme=zigbee_zczr_8MB,ZigbeeMode=zczr",
+  "requires": [
+    "CONFIG_ZB_ENABLED=y"
+  ],
+  "targets": {
+    "esp32c6": false,
+    "esp32h2": false
+  }
+}

@@ -1,0 +1,6 @@
+#line 1 "/Users/bhargavveepuri/Homato/v1/homato/Firmware/homato_v1/myesp32board/libraries/ESP32/examples/DeepSleep/TimerWakeUp/ci.json"
+{
+  "targets": {
+    "esp32h2": false
+  }
+}

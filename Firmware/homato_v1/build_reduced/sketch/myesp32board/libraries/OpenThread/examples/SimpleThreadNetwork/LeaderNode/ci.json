@@ -1,0 +1,7 @@
+#line 1 "/Users/bhargavveepuri/Homato/v1/homato/Firmware/homato_v1/myesp32board/libraries/OpenThread/examples/SimpleThreadNetwork/LeaderNode/ci.json"
+{
+  "requires": [
+    "CONFIG_OPENTHREAD_ENABLED=y",
+    "CONFIG_SOC_IEEE802154_SUPPORTED=y"
+  ]
+}

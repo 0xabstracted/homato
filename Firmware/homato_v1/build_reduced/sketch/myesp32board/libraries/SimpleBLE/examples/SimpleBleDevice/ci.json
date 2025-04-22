@@ -1,0 +1,7 @@
+#line 1 "/Users/bhargavveepuri/Homato/v1/homato/Firmware/homato_v1/myesp32board/libraries/SimpleBLE/examples/SimpleBleDevice/ci.json"
+{
+  "requires": [
+    "CONFIG_BT_ENABLED=y",
+    "CONFIG_BLUEDROID_ENABLED=y"
+  ]
+}
