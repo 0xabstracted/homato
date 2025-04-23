@@ -1,5 +1,7 @@
 # API Documentation
 
+This document details the API interfaces for the Homato Home Automation System, including MQTT topics for device communication and BLE services for device configuration.
+
 ## Overview
 
 The Homato API consists of three main components:
@@ -50,15 +52,17 @@ socket.emit('controlDevice', {
 });
 ```
 
-**Available Devices:**
-- `switch`
-- `light`
-- `fan`
-- `tubelight`
-- `bedlight`
-- `falseceiling`
-- `ac`
-- `switchport`
+**Available Relays:**
+- `relay1`
+- `relay2`
+- `relay3`
+- `relay4`
+- `relay5`
+- `relay6`
+- `relay7`
+- `relay8`
+
+**Note:** The actual number of available relays depends on the device capabilities, which can be queried via BLE during pairing.
 
 ### Server to Client Events
 
@@ -94,20 +98,24 @@ socket.on('error', (data) => {
 
 ### Control Topics
 
-All topics use the prefix `home/`
+All topics now use device IDs as prefixes (e.g., `st-000002/relay1`) instead of a generic prefix. This allows for multiple devices to be controlled independently.
 
 | Topic | Description | Payload | QoS | Retained |
 |-------|-------------|---------|-----|----------|
-| `home/switch` | Main switch | ON/OFF | 1 | Yes |
-| `home/light` | Light control | ON/OFF | 1 | Yes |
-| `home/fan` | Fan control | ON/OFF | 1 | Yes |
-| `home/tubelight` | Tube light | ON/OFF | 1 | Yes |
-| `home/bedlight` | Bed light | ON/OFF | 1 | Yes |
-| `home/falseceiling` | False ceiling | ON/OFF | 1 | Yes |
-| `home/ac` | AC control | ON/OFF | 1 | Yes |
-| `home/switchport` | Switch port | ON/OFF | 1 | Yes |
-| `home/status` | Device status | String | 0 | No |
-| `home/availability` | Connection status | online/offline | 1 | Yes |
+| `{deviceID}/relay1` | Relay 1 control | ON/OFF | 1 | Yes |
+| `{deviceID}/relay2` | Relay 2 control | ON/OFF | 1 | Yes |
+| `{deviceID}/relay3` | Relay 3 control | ON/OFF | 1 | Yes |
+| `{deviceID}/relay4` | Relay 4 control | ON/OFF | 1 | Yes |
+| `{deviceID}/relay5` | Relay 5 control | ON/OFF | 1 | Yes |
+| `{deviceID}/relay6` | Relay 6 control | ON/OFF | 1 | Yes |
+| `{deviceID}/relay7` | Relay 7 control | ON/OFF | 1 | Yes |
+| `{deviceID}/relay8` | Relay 8 control | ON/OFF | 1 | Yes |
+| `{deviceID}/temperature` | Temperature reading | Float (°C) | 0 | No |
+| `{deviceID}/humidity` | Humidity reading | Float (%) | 0 | No |
+| `{deviceID}/ldr` | Light sensor reading | Integer | 0 | No |
+| `{deviceID}/availability` | Connection status | online/offline | 1 | Yes |
+
+Where `{deviceID}` is the unique identifier for each device (e.g., `st-000002`).
 
 ## Code Examples
 
@@ -118,15 +126,16 @@ All topics use the prefix `home/`
 const io = require('socket.io-client');
 const socket = io('http://localhost:3000');
 
-// Turn on the light
+// Turn on a relay for a specific device
 socket.emit('controlDevice', {
-  device: 'light',
-  state: 'ON'
+  deviceId: 'st-000002',  // Device identifier
+  relay: 'relay1',        // Relay identifier
+  state: 'ON'            // 'ON' or 'OFF'
 });
 
 // Listen for updates
 socket.on('deviceUpdate', (data) => {
-  console.log(`Device ${data.topic} is now ${data.state}`);
+  console.log(`Device ${data.deviceId} relay ${data.relay} is now ${data.state}`);
 });
 ```
 
@@ -138,11 +147,14 @@ const client = mqtt.connect('mqtts://your-broker:8883', {
   password: 'your-password'
 });
 
-// Turn on the light
-client.publish('home/light', 'ON', { retain: true });
+// Device ID for the target device
+const deviceID = 'st-000002';
 
-// Subscribe to updates
-client.subscribe('home/#');
+// Turn on relay 1
+client.publish(`${deviceID}/relay1`, 'ON', { retain: true });
+
+// Subscribe to all topics for this device
+client.subscribe(`${deviceID}/#`);
 client.on('message', (topic, message) => {
   console.log(`${topic}: ${message.toString()}`);
 });
@@ -168,9 +180,13 @@ client = mqtt.Client()
 client.username_pw_set("your-username", "your-password")
 client.tls_set()  # For secure connection
 
+# Device ID for the target device
+device_id = "st-000002"
+
 def on_connect(client, userdata, flags, rc):
     print("Connected with result code "+str(rc))
-    client.subscribe("home/#")
+    # Subscribe to all topics for this device
+    client.subscribe(f"{device_id}/#")
 
 def on_message(client, userdata, msg):
     print(f"{msg.topic}: {msg.payload.decode()}")
@@ -181,8 +197,8 @@ client.on_message = on_message
 client.connect("your-broker", 8883, 60)
 client.loop_start()
 
-# Turn on the light
-client.publish("home/light", "ON", retain=True)
+# Turn on relay 1
+client.publish(f"{device_id}/relay1", "ON", retain=True)
 ```
 
 ## Rate Limits and Throttling
@@ -214,8 +230,95 @@ socket.on('error', (error) => {
     case 'THROTTLED':
       console.log('Command throttled');
       break;
+    case 'INVALID_DEVICE_ID':
+      console.log('Device ID not recognized');
+      break;
+    case 'RELAY_NOT_FOUND':
+      console.log('Specified relay not found on device');
+      break;
   }
 });
+```
+
+## BLE Service API
+
+The firmware now includes BLE (Bluetooth Low Energy) functionality for device setup and WiFi configuration.
+
+### BLE Service UUID
+
+```
+4fafc201-1fb5-459e-8fcc-c5c9c331914b
+```
+
+### Characteristics
+
+#### Device Information Characteristic (Read)
+
+```
+UUID: beb5483e-36e1-4688-b7f5-ea07361b26a8
+```
+
+Returns device information in the format: `deviceID:numRelays`
+
+Example: `st-000002:8`
+
+#### WiFi Configuration Characteristic (Read/Write)
+
+```
+UUID: beb5483e-36e1-4688-b7f5-ea07361b26a9
+```
+
+**Write Format**: `SSID:password`
+
+**Read Response**: 
+- Success: `Connected to WiFi. IP: 192.168.1.100`
+- Failure: `Error: Could not connect to WiFi`
+
+### BLE Connection Flow
+
+1. Scan for devices advertising the Homato service UUID
+2. Connect to the device
+3. Read the device information characteristic
+4. Write WiFi credentials to the WiFi configuration characteristic
+5. Read the response from the WiFi configuration characteristic
+
+### BLE API Example (JavaScript)
+
+```javascript
+// Using Web Bluetooth API
+async function connectToDevice() {
+  try {
+    const device = await navigator.bluetooth.requestDevice({
+      filters: [{
+        services: ['4fafc201-1fb5-459e-8fcc-c5c9c331914b']
+      }]
+    });
+    
+    const server = await device.gatt.connect();
+    const service = await server.getPrimaryService('4fafc201-1fb5-459e-8fcc-c5c9c331914b');
+    
+    // Read device info
+    const deviceInfoChar = await service.getCharacteristic('beb5483e-36e1-4688-b7f5-ea07361b26a8');
+    const infoValue = await deviceInfoChar.readValue();
+    const deviceInfo = new TextDecoder().decode(infoValue);
+    console.log('Device Info:', deviceInfo);
+    
+    // Send WiFi credentials
+    const wifiConfigChar = await service.getCharacteristic('beb5483e-36e1-4688-b7f5-ea07361b26a9');
+    const credentials = 'MyWiFi:MyPassword';
+    await wifiConfigChar.writeValue(new TextEncoder().encode(credentials));
+    
+    // Read response
+    const responseValue = await wifiConfigChar.readValue();
+    const response = new TextDecoder().decode(responseValue);
+    console.log('WiFi Config Response:', response);
+    
+    return deviceInfo;
+  } catch (error) {
+    console.error('Bluetooth Error:', error);
+    throw error;
+  }
+}
 ```
 
 ## Security
@@ -224,11 +327,13 @@ socket.on('error', (error) => {
 - MQTT: Username/Password
 - Socket.IO: Token-based (optional)
 - REST API: API Key (optional)
+- BLE: Physical access required (proximity-based security)
 
 ### SSL/TLS
 - MQTT: Port 8883 with SSL/TLS
 - WebSocket: WSS support
 - REST API: HTTPS support
+- BLE: Standard Bluetooth security
 
 ## Best Practices
 
@@ -236,18 +341,29 @@ socket.on('error', (error) => {
    - Always implement error handling
    - Handle connection losses gracefully
    - Implement reconnection logic
+   - Handle multi-network failover scenarios
 
 2. **State Management**
    - Cache device states locally
    - Implement state synchronization
    - Handle offline scenarios
+   - Track device IDs and capabilities
 
 3. **Performance**
    - Use appropriate QoS levels
    - Implement message throttling
    - Monitor connection health
+   - Use wildcard topics efficiently (`deviceID/#`)
 
 4. **Security**
-   - Use SSL/TLS
+   - Use SSL/TLS for MQTT
    - Implement authentication
-   - Validate all inputs 
+   - Validate all inputs
+   - Secure BLE pairing process
+   - Implement timeout for BLE pairing mode
+
+5. **Multiple Device Management**
+   - Use consistent device ID naming scheme
+   - Implement device discovery mechanisms
+   - Store device mappings persistently
+   - Handle device additions and removals gracefully 
