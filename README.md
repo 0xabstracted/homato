@@ -1,6 +1,6 @@
 # Homato - Home Automation System
 
-Homato is a complete home automation solution that allows you to control various household devices remotely through a web interface. The system uses MQTT for reliable communication between the control interface and IoT devices.
+Homato is a complete home automation solution that allows you to control various household devices remotely through a web interface. The system uses MQTT for reliable communication between the control interface and IoT devices, with added Bluetooth connectivity for easy setup and configuration.
 
 ## Features
 
@@ -11,6 +11,8 @@ Homato is a complete home automation solution that allows you to control various
   - Air Conditioner
   - Switch Ports
 
+- **Bluetooth Configuration**: Easy device setup and WiFi configuration via BLE
+- **Multiple Network Support**: Store up to 3 WiFi credentials for improved reliability
 - **Connection Status Monitoring**: Real-time status indicators for both server and device connectivity
 - **Activity Logging**: Track all control operations and status changes
 - **State Persistence**: Device states are stored in EEPROM to recover after power outages
@@ -24,10 +26,13 @@ Homato is a complete home automation solution that allows you to control various
    - Node.js backend with Express
    - Socket.IO for real-time communication
    - Clean, responsive UI for device control
+   - Mobile app for device setup and control
 
 2. **Firmware**:
-   - ESP8266-based hardware implementation
+   - ESP32-based hardware implementation
+   - BLE support for device pairing and configuration
    - Secure MQTT client for cloud communication
+   - Multi-network support with fallback capability
    - State persistence via EEPROM
 
 3. **MQTT Broker**:
@@ -41,7 +46,8 @@ Homato is a complete home automation solution that allows you to control various
 
 - Node.js v14+
 - Docker (for containerized deployment)
-- ESP8266 compatible board for hardware
+- ESP32 compatible board for hardware
+- Mobile device with Bluetooth capability for configuration
 
 ### Backend Setup
 
@@ -71,17 +77,50 @@ Homato is a complete home automation solution that allows you to control various
 ### Firmware Setup
 
 1. Open the Arduino IDE
-2. Install ESP8266 board support
+2. Install ESP32 board support
 3. Open `Firmware/homato_v1/homato_v1.ino`
-4. Update WiFi and MQTT credentials
-5. Upload to your ESP8266 device
+4. Update MQTT credentials if needed (WiFi can be configured via BLE)
+5. Compile and upload to your ESP32 device using the huge_app partition scheme
+
+#### Compilation and Upload Commands
+
+```bash
+# Compile with huge_app partition scheme
+arduino-cli compile --fqbn esp32:esp32:esp32:PartitionScheme=huge_app,FlashMode=qio,FlashFreq=80,UploadSpeed=921600 homato_v1.ino
+
+# Upload to the ESP32
+arduino-cli upload --fqbn esp32:esp32:esp32:PartitionScheme=huge_app,FlashMode=qio,FlashFreq=80,UploadSpeed=921600 -p /dev/cu.usbserial-0001 homato_v1.ino
+```
 
 ## Hardware Setup
 
-Connect relays to these GPIO pins:
-- Main Switch: D1
-- Light: D2
-- Additional pins can be configured for other devices
+### Relay Connections
+Connect relays to these GPIO pins on the ESP32:
+- Relay 1: GPIO 23
+- Relay 2: GPIO 22
+- Relay 3: GPIO 21
+- Relay 4: GPIO 19
+- Relay 5: GPIO 18
+- Relay 6: GPIO 5
+- Relay 7: GPIO 25
+- Relay 8: GPIO 26
+
+### Switch Inputs
+Connect switch inputs to these GPIO pins:
+- Switch 1: GPIO 13
+- Switch 2: GPIO 12
+- Switch 3: GPIO 14
+- Switch 4: GPIO 27
+- Switch 5: GPIO 33
+- Switch 6: GPIO 32
+- Switch 7: GPIO 15
+- Switch 8: GPIO 4
+
+### Other Components
+- BLE Button: GPIO 0 (usually the BOOT button on ESP32)
+- WiFi Status LED: GPIO 2 (built-in LED on most ESP32 boards)
+- DHT11 Temperature Sensor: GPIO 16
+- LDR (Light Sensor): GPIO 34
 
 ## Usage
 
@@ -127,12 +166,14 @@ graph TD
     end
 
     subgraph IoT Device
-        E[ESP8266] -->|Subscribe| D
+        E[ESP32] -->|Subscribe| D
         D -->|Publish| E
         E -->|Control| F[Relay Module]
         F -->|Status| E
         E -->|Store State| G[EEPROM]
         G -->|Recover State| E
+        E <-->|BLE Pairing| H[Mobile App]
+        H -->|WiFi Config| E
     end
 
     style A fill:#f9f,stroke:#333,stroke-width:2px
@@ -142,26 +183,34 @@ graph TD
 
 ### Data Flow Description
 
-1. **User Interaction**
+1. **Device Onboarding**
+   - User presses the BLE button on the device for 5 seconds to activate pairing mode
+   - Mobile app discovers and connects to the device via BLE
+   - Device provides information about its capabilities (relay count, device ID)
+   - User configures WiFi credentials through the mobile app
+   - Device stores multiple WiFi credentials in EEPROM for fallback
+
+2. **User Interaction**
    - User toggles a device in the web interface
    - Socket.IO client emits control event to backend
 
-2. **Backend Processing**
+3. **Backend Processing**
    - Server receives Socket.IO event
    - Processes request and publishes to MQTT topic
    - Maintains connection status and device states
 
-3. **MQTT Communication**
+4. **MQTT Communication**
    - Broker handles message routing between backend and IoT device
    - Manages retained messages and QoS levels
    - Handles device availability status
 
-4. **IoT Device Operation**
-   - ESP8266 receives MQTT messages
+5. **IoT Device Operation**
+   - ESP32 receives MQTT messages
    - Controls appropriate relay
    - Stores state in EEPROM
    - Reports status back through MQTT
    - Handles power recovery and state restoration
+   - Automatically tries alternative WiFi networks if primary connection fails
 
 5. **Status Updates**
    - Device publishes state changes
@@ -172,7 +221,35 @@ graph TD
 ### Error Handling
 
 - Connection loss detection
+- Multi-network failover capability
 - Automatic reconnection attempts
+- BLE mode activation for WiFi reconfiguration
 - State persistence during power outages
 - Command throttling to prevent relay damage
 - Device availability monitoring
+- Memory usage optimization to prevent crashes
+
+### Flashing Instructions
+
+- Fully erase flash with 
+```bash
+python3.11 -m esptool --chip esp32 --port /dev/cu.usbserial-0001 erase_flash
+```
+- Compile your sketch with 
+```bash
+arduino-cli compile --fqbn esp32:esp32:esp32:PartitionScheme=huge_app,FlashMode=qio,FlashFreq=80,UploadSpeed=921600 homato_v1.ino
+```
+- Upload your fresh firmware with 
+```bash
+arduino-cli upload --fqbn esp32:esp32:esp32:PartitionScheme=huge_app,FlashMode=qio,FlashFreq=80,UploadSpeed=921600 -p /dev/cu.usbserial-0001 homato_v1.ino
+```
+
+### Mobile App Requirements
+
+The backend team should implement the following in the mobile app:
+
+1. **BLE Discovery**: Scan for BLE devices with service UUID `4fafc201-1fb5-459e-8fcc-c5c9c331914b`
+2. **Device Information**: Read device info from characteristic UUID `beb5483e-36e1-4688-b7f5-ea07361b26a8`
+3. **WiFi Configuration**: Write WiFi credentials to characteristic UUID `beb5483e-36e1-4688-b7f5-ea07361b26a9` in format `SSID:password`
+4. **Feedback Handling**: Process success/error responses from WiFi configuration attempts
+5. **Relay Mapping**: UI for mapping relays after successful device onboarding

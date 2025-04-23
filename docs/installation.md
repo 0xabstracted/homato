@@ -1,50 +1,56 @@
 # Installation Guide
 
-## System Requirements
+This guide provides comprehensive installation instructions for all components of the Homato Home Automation System.
 
-### Software Requirements
-- Node.js v14 or higher
-- npm v6 or higher
-- Arduino IDE 1.8.x or higher
-- Git
-- Docker (optional)
+## Prerequisites
 
-### Hardware Requirements
-- ESP8266 NodeMCU
-- 8-Channel Relay Module (5V)
-- 5V/2A Power Supply
-- USB Cable for ESP8266
+Before starting installation, ensure you have the following tools and components:
+
+### Development Environment
+
+- **Node.js** v14 or higher
+- **npm** v6 or higher
+- **Arduino IDE** 2.0 or higher (or Arduino CLI)
+- **Git** for repository cloning
+- **Python 3.7+** for esptool and other utilities (optional)
+
+### Hardware Components
+
+- ESP32 Development Board with at least 4MB flash
+- 8-Channel Relay Module
+- Power Supply (5V/2A)
+- DHT11 Temperature/Humidity Sensor
+- LDR (Light Dependent Resistor)
 - Jumper Wires
-- Terminal Blocks
 - Project Enclosure
+- Terminal Blocks
+- AC/DC Components as needed
+- Mobile Device with Bluetooth for configuration
 
 ## Backend Installation
 
-### 1. Clone the Repository
-```bash
-git clone https://github.com/0xabstracted/homato.git
-cd homato
-```
+### Setting Up the Node.js Backend
 
-### 2. Install Dependencies
-```bash
-cd homato-control-system
-npm install
-```
+1. Navigate to the backend directory:
+   ```bash
+   cd homato/homato-control-system
+   ```
 
-### 3. Environment Setup
-```bash
-# Copy example environment file
-cp .env.example .env
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
 
-# Edit .env with your settings
-PORT=3000
-MQTT_HOST=your-mqtt-host
-MQTT_PORT=8883
-MQTT_USERNAME=your-username
-MQTT_PASSWORD=your-password
-DEBUG=app:*
-```
+3. Create `.env` file:
+   ```env
+   PORT=3000
+   MQTT_HOST=your-mqtt-host
+   MQTT_PORT=8883
+   MQTT_USERNAME=your-username
+   MQTT_PASSWORD=your-password
+   # Optional - enable debug logs
+   DEBUG=app:*,mqtt:*,socket:*
+   ```
 
 ### 4. MQTT Broker Setup
 
@@ -80,35 +86,59 @@ sudo systemctl restart mosquitto
 
 ## Firmware Installation
 
-### 1. Arduino IDE Setup
-1. Install Arduino IDE
-2. Add ESP8266 Board Support:
-   - Open Preferences
-   - Add `http://arduino.esp8266.com/stable/package_esp8266com_index.json` to Additional Boards Manager URLs
-   - Install ESP8266 from Boards Manager
+### Installing ESP32 Board Support
 
-### 2. Required Libraries
-Install these libraries from Arduino Library Manager:
-- PubSubClient
-- ESP8266WiFi
-- ArduinoJson
+1. Open Arduino IDE
+2. Go to **File > Preferences**
+3. Add `https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json` to Additional Board Manager URLs
+4. Go to **Tools > Board > Boards Manager**
+5. Search for **ESP32** and install the latest version
 
-### 3. Upload Firmware
-1. Open `Firmware/homato_v1/homato_v1.ino`
-2. Update WiFi credentials:
-   ```cpp
-   const char* ssid = "Your_SSID";
-   const char* password = "Your_Password";
+### Uploading the Firmware
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/0xabstracted/homato.git
+   cd homato/Firmware/homato_v1
    ```
-3. Update MQTT settings:
+
+2. Open `homato_v1.ino` in Arduino IDE
+
+3. Update MQTT credentials (WiFi will be configured via BLE):
    ```cpp
-   const char* mqtt_server = "your-mqtt-host";
+   const char* mqtt_server = "your-mqtt-broker.com";
    const char* mqtt_username = "your-username";
    const char* mqtt_password = "your-password";
    ```
-4. Select correct board: Tools → Board → NodeMCU 1.0
-5. Select correct port: Tools → Port → COM* or /dev/ttyUSB*
-6. Upload firmware
+   
+4. Update device identifier if needed:
+   ```cpp
+   const char* DEVICE_ID = "st-000002"; // Change to a unique ID
+   ```
+
+5. Select the correct board, partition scheme, and port:
+   - Board: **ESP32 Dev Module**
+   - Partition Scheme: **Huge APP (3MB No OTA/1MB SPIFFS)**
+   - Flash Mode: **QIO**
+   - Flash Frequency: **80MHz**
+   - Upload Speed: **921600**
+   - Port: Select the correct COM port or /dev/ttyUSB*
+
+6. Upload the sketch using the Arduino IDE
+
+   Or use Arduino CLI with the following commands:
+   ```bash
+   # Compile with huge_app partition scheme
+   arduino-cli compile --fqbn esp32:esp32:esp32:PartitionScheme=huge_app,FlashMode=qio,FlashFreq=80,UploadSpeed=921600 homato_v1.ino
+
+   # Upload to the ESP32
+   arduino-cli upload --fqbn esp32:esp32:esp32:PartitionScheme=huge_app,FlashMode=qio,FlashFreq=80,UploadSpeed=921600 -p /dev/cu.usbserial-0001 homato_v1.ino
+   ```
+
+7. If you encounter flash errors, you may need to fully erase the flash:
+   ```bash
+   python3 -m esptool --chip esp32 --port /dev/cu.usbserial-0001 erase_flash
+   ```
 
 ## Running the Application
 
@@ -127,7 +157,7 @@ npm start
 sudo docker build -t app .
 
 # Run container
-sudo docker run -d -it -p 3000:3000 --name appc app
+sudo docker run -d -p 3000:3000 --name appc app
 
 # View logs
 sudo docker logs -f appc
@@ -144,6 +174,47 @@ pm2 start ecosystem.config.js
 # Monitor application
 pm2 monit
 ```
+
+## BLE Configuration and Device Setup
+
+1. **Enter BLE Pairing Mode**:
+   - Power on the ESP32 device
+   - Press and hold the BLE button (GPIO 0, usually the BOOT button) for 5 seconds
+   - The device LED should start blinking to indicate BLE pairing mode
+
+2. **Configure via Mobile App**:
+   - Use the Homato mobile app to discover the device
+   - Connect to the device via BLE
+   - Follow the app wizard to:  
+     a. View device information (ID, relay count)  
+     b. Enter WiFi credentials (SSID and password)  
+     c. Configure device name and relay labels
+
+3. **Verify Connection**:
+   - The device should connect to WiFi after receiving credentials
+   - The app will show a success message with the device's IP address
+   - The device LED should stop blinking and remain on
+
+## System Verification
+
+1. **Test Backend Connection**:
+   - Start the backend: `npm start`
+   - Access web interface: http://localhost:3000
+   - Verify the interface loads
+
+2. **Test MQTT Connection**:
+   - Use an MQTT client like MQTT Explorer
+   - Connect to your broker
+   - Verify the device publishes to its availability topic (`deviceID/availability`)
+
+3. **Test Device Control**:
+   - Try toggling a device in the web interface
+   - Verify relay activation
+   - Check status feedback
+
+4. **Test Multi-Network Fallback**:
+   - If you've configured multiple WiFi networks, test the fallback capability
+   - Disable the primary network and verify the device connects to the backup network
 
 ## Post-Installation
 
@@ -189,7 +260,7 @@ pm2 monit
    npm install --verbose
    ```
 
-2. **ESP8266 Upload Fails**
+2. **ESP32 Upload Fails**
    - Check USB connection
    - Verify correct COM port
    - Hold FLASH button while uploading
@@ -216,14 +287,27 @@ npm run build
 ```
 
 ### Firmware Updates
-1. Backup current firmware
-2. Download new version
-3. Update configuration
-4. Upload to ESP8266
+1. Pull the latest code:
+   ```bash
+   cd homato
+   git pull
+   ```
+
+2. Open the updated firmware in Arduino IDE
+3. Ensure the partition scheme is still set to huge_app
+4. Upload following the same process as initial installation
+
+### Preserving WiFi Configuration
+
+When updating firmware, the WiFi credentials stored in EEPROM will be preserved unless:
+1. You perform a full flash erase
+2. The firmware update includes changes to the EEPROM storage structure
+
+If WiFi credentials are lost during update, you can easily reconfigure via BLE pairing.
 
 ## Next Steps
 
 1. Read [Hardware Setup](hardware.md) for physical connections
 2. Configure [Environment](configuration.md)
 3. Review [Security Considerations](security.md)
-4. Check [Troubleshooting Guide](troubleshooting.md) if needed 
+4. Check [Troubleshooting Guide](troubleshooting.md) if needed
