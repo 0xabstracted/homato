@@ -1,264 +1,494 @@
-import { useEffect, useState } from "react";
-import { Text, View, StyleSheet, ScrollView, RefreshControl, Alert, Platform } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
-import { BlurView } from "expo-blur";
-import { Switch } from "react-native";
-import * as Haptics from "expo-haptics";
-import { useHomeAutomation, DeviceType, HomeAutomationProvider } from "./contexts/HomeAutomationContext";
+import React, { useState, useEffect } from "react";
+import { Text, View, StyleSheet, ScrollView, RefreshControl, TouchableOpacity, ActivityIndicator } from "react-native";
+import { Picker } from '@react-native-picker/picker';
+import { useAppContext } from "./context/AppContext";
 
-// Define device icon types to match Ionicons
-type IconName = React.ComponentProps<typeof Ionicons>['name'];
-
-// Device configuration with icons and labels
-const DEVICES = [
-  { id: "switch", name: "Main Switch", icon: "power" as IconName },
-  { id: "light", name: "Light", icon: "bulb" as IconName },
-  { id: "fan", name: "Fan", icon: "fan" as IconName },
-  { id: "tubelight", name: "Tube Light", icon: "flashlight" as IconName },
-  { id: "bedlight", name: "Bed Light", icon: "bed" as IconName },
-  { id: "falseceiling", name: "False Ceiling Light", icon: "cloud" as IconName },
-  { id: "ac", name: "AC", icon: "snow" as IconName },
-  { id: "switchport", name: "Switch Port", icon: "flash" as IconName },
-];
-
-// Main app component
-export default function App() {
+// Connection status bar component
+function ConnectionStatusBar() {
+  const { isConnected } = useAppContext();
+  
   return (
-    <HomeAutomationProvider>
-      <DevicesScreen />
-    </HomeAutomationProvider>
-  );
-}
-
-function DevicesScreen() {
-  // Get state and functions from context
-  const { 
-    deviceState, 
-    isConnected, 
-    controlDevice, 
-    isLoading, 
-    refreshConnection, 
-    activityLog 
-  } = useHomeAutomation();
-  
-  const [refreshing, setRefreshing] = useState(false);
-
-  const onRefresh = async () => {
-    setRefreshing(true);
-    refreshConnection();
-    setTimeout(() => {
-      setRefreshing(false);
-    }, 1500);
-  };
-  
-  const toggleDevice = (device: DeviceType) => {
-    if (!deviceState.deviceConnected) {
-      Alert.alert("Error", "Device is offline, cannot process command");
-      return;
-    }
-    
-    const currentState = deviceState[device];
-    const newState = currentState === "ON" ? "OFF" : "ON";
-    
-    // Provide haptic feedback
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    
-    // Call context method to toggle device
-    controlDevice(device, newState as "ON" | "OFF");
-  };
-  
-  const getDeviceColor = (device: string) => {
-    const deviceKey = device as DeviceType;
-    if (!deviceState.deviceConnected) return "#888";
-    return deviceState[deviceKey] === "ON" ? "#4CAF50" : "#ccc";
-  };
-
-  return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Homato Control System</Text>
-        <View style={[styles.connectionStatus, { backgroundColor: deviceState.deviceConnected ? "#4CAF50" : "#F44336" }]}>
-          <Text style={styles.connectionText}>
-            {deviceState.deviceConnected ? "Connected" : "Disconnected"}
-          </Text>
-        </View>
-      </View>
-
-      <ScrollView 
-        style={styles.devicesContainer}
-        contentContainerStyle={styles.devicesContent}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-      >
-        {DEVICES.map((device) => (
-          <BlurView 
-            key={device.id} 
-            intensity={90} 
-            tint="light" 
-            style={[
-              styles.deviceCard,
-              { borderColor: getDeviceColor(device.id) }
-            ]}
-          >
-            <View style={styles.deviceInfo}>
-              <View style={[styles.deviceIcon, { backgroundColor: getDeviceColor(device.id) }]}>
-                <Ionicons name={device.icon} size={24} color="#fff" />
-              </View>
-              <View>
-                <Text style={styles.deviceName}>{device.name}</Text>
-                <Text style={styles.deviceStatus}>
-                  {deviceState.deviceConnected ? deviceState[device.id as DeviceType] : "Unknown"}
-                </Text>
-              </View>
-            </View>
-            <Switch
-              value={deviceState[device.id as DeviceType] === "ON"}
-              onValueChange={() => toggleDevice(device.id as DeviceType)}
-              disabled={!deviceState.deviceConnected}
-              trackColor={{ false: "#767577", true: "#81b0ff" }}
-              thumbColor={deviceState[device.id as DeviceType] === "ON" ? "#4CAF50" : "#f4f3f4"}
-              ios_backgroundColor="#3e3e3e"
-            />
-          </BlurView>
-        ))}
-        
-        <View style={styles.logContainer}>
-          <Text style={styles.logTitle}>Activity Log</Text>
-          <View style={styles.logItems}>
-            {activityLog.map((log, index) => (
-              <Text key={index} style={styles.logEntry}>
-                <Text style={styles.logTime}>{log.time}</Text> - {log.message}
-              </Text>
-            ))}
-            {activityLog.length === 0 && (
-              <Text style={styles.logEmpty}>No activity yet</Text>
-            )}
-          </View>
-        </View>
-      </ScrollView>
+    <View style={[styles.statusBar, isConnected ? styles.connected : styles.disconnected]}>
+      <Text style={styles.statusText}>
+        Server: {isConnected ? 'Connected' : 'Disconnected'}
+      </Text>
     </View>
   );
 }
 
+// Homato Control System screen
+export default
+function DevicesScreen() {
+  const { devices, refreshDevices, controlDevice, isConnected } = useAppContext();
+  const [refreshing, setRefreshing] = useState(false);
+  const [selectedDevice, setSelectedDevice] = useState<string>('');
+  const [loading, setLoading] = useState(true);
+  
+  // Set the first device as selected when devices are loaded
+  useEffect(() => {
+    if (Object.keys(devices).length > 0 && !selectedDevice) {
+      setSelectedDevice(Object.keys(devices)[0]);
+    }
+    setLoading(false);
+  }, [devices]);
+  
+  // Handle pull-to-refresh
+  const onRefresh = () => {
+    setRefreshing(true);
+    refreshDevices();
+    setTimeout(() => setRefreshing(false), 1000); // Ensure refresh indicator shows for at least 1 second
+  };
+  
+  // Get the selected device data
+  const selectedDeviceData = selectedDevice ? devices[selectedDevice] : null;
+  
+  // Format the current date and time
+  const currentDateTime = new Date().toLocaleString('en-US', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: true
+  });
+  
+  return (
+    <ScrollView 
+      style={styles.screenContainer}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+    >
+      <View style={styles.headerContainer}>
+        <Text style={styles.screenTitle}>Homato Control System</Text>
+        <ConnectionStatusBar />
+      </View>
+      
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#0066cc" />
+          <Text style={styles.loadingText}>Loading devices...</Text>
+        </View>
+      ) : !isConnected ? (
+        <View style={styles.messageContainer}>
+          <Text style={styles.messageText}>Not connected to server</Text>
+          <Text style={styles.messageSubtext}>Pull down to try reconnecting</Text>
+        </View>
+      ) : Object.keys(devices).length === 0 ? (
+        <View style={styles.messageContainer}>
+          <Text style={styles.messageText}>No devices found</Text>
+          <Text style={styles.messageSubtext}>Pull down to refresh</Text>
+        </View>
+      ) : (
+        <View style={styles.container}>
+          <View style={styles.selectDeviceContainer}>
+            <Text style={styles.selectDeviceLabel}>Select Device</Text>
+            <View style={styles.pickerOuterContainer}>
+              <View style={styles.pickerContainer}>
+                <Picker
+                  selectedValue={selectedDevice}
+                  style={styles.devicePicker}
+                  onValueChange={(itemValue) => setSelectedDevice(itemValue.toString())}
+                  dropdownIconColor="#333"
+                >
+                  {Object.keys(devices).map((deviceId) => (
+                    <Picker.Item key={deviceId} label={deviceId} value={deviceId} />
+                  ))}
+                </Picker>
+              </View>
+            </View>
+          </View>
+          
+          {selectedDeviceData && (
+            <View style={styles.deviceInfoContainer}>
+              <View style={styles.deviceInfoTable}>
+                <View style={styles.deviceInfoRow}>
+                  <Text style={styles.deviceInfoLabel}>Device ID:</Text>
+                  <Text style={styles.deviceInfoValue}>
+                    <Text style={styles.deviceIdHighlight}>{selectedDevice}</Text>
+                  </Text>
+                </View>
+                
+                <View style={styles.deviceInfoRow}>
+                  <Text style={styles.deviceInfoLabel}>Status:</Text>
+                  <View style={styles.statusContainer}>
+                    <Text style={[styles.deviceInfoValue, styles.statusValueText, 
+                      selectedDeviceData.status === 'online' ? styles.statusTextOnline : 
+                      selectedDeviceData.status === 'offline' ? styles.statusTextOffline : 
+                      styles.statusTextUnreachable]}>
+                      {selectedDeviceData.status.charAt(0).toUpperCase() + selectedDeviceData.status.slice(1)}
+                    </Text>
+                  </View>
+                </View>
+                
+                <View style={styles.deviceInfoRow}>
+                  <Text style={styles.deviceInfoLabel}>Last Seen:</Text>
+                  <Text style={styles.deviceInfoValue}>
+                    {new Date(selectedDeviceData.lastSeen).toLocaleString('en-US', {
+                      day: '2-digit',
+                      month: '2-digit',
+                      year: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      second: '2-digit',
+                      hour12: true
+                    })}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          )}
+          
+          {selectedDeviceData && (
+            <View style={styles.relayContainer}>
+              <View style={styles.relayGrid}>
+                {Object.entries(selectedDeviceData.relays).map(([relay, state]) => (
+                  <View key={relay} style={styles.relayCardContainer}>
+                    <TouchableOpacity 
+                      style={[
+                        styles.relayCard, 
+                        !selectedDeviceData.online && styles.relayDisabled,
+                        state === 'ON' ? styles.relayCardOn : styles.relayCardOff
+                      ]}
+                      onPress={() => {
+                        if (selectedDeviceData.online) {
+                          controlDevice(selectedDevice, relay, state === 'ON' ? 'OFF' : 'ON');
+                        }
+                      }}
+                      disabled={!selectedDeviceData.online}
+                    >
+                      <View style={styles.relayIconContainer}>
+                        <View style={[styles.powerIcon, state === 'ON' ? styles.powerIconOn : styles.powerIconOff]} />
+                      </View>
+                      <View style={styles.relayTextContainer}>
+                        <Text style={styles.relayName}>Relay {relay}</Text>
+                        <Text style={[styles.relayStateText, state === 'ON' ? styles.stateTextOn : styles.stateTextOff]}>
+                          {state === 'ON' ? 'ON' : 'OFF'}
+                        </Text>
+                        <Text style={styles.relayDescription}>
+                          Controls relay{relay}
+                        </Text>
+                      </View>
+                      <View style={styles.relayStatusContainer}>
+                        <View style={[styles.relayStatus, state === 'ON' ? styles.relayOn : styles.relayOff]} />
+                      </View>
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+            </View>
+          )}
+          
+          <View style={styles.activityLogContainer}>
+            <Text style={styles.activityLogTitle}>Activity Log</Text>
+            <View style={styles.logEntryContainer}>
+              <Text style={styles.logTime}>{currentDateTime}</Text>
+              <Text style={styles.logMessage}>Connected to server</Text>
+            </View>
+            {selectedDeviceData && Object.entries(selectedDeviceData.relays).map(([relay, state], index) => (
+              <View key={`log-${index}`} style={styles.logEntryContainer}>
+                <Text style={styles.logTime}>{currentDateTime}</Text>
+                <Text style={styles.logMessage}>Received state for {selectedDevice} devices</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+      )}
+    </ScrollView>
+  );
+}
+
+// Styles
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f6f8fa",
+    backgroundColor: '#f5f8fa',
+    padding: 16,
   },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+  headerContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
     paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 12,
-    backgroundColor: "#fff",
-    borderBottomWidth: 1,
-    borderBottomColor: "#e1e4e8",
+    paddingTop: 8,
   },
-  title: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#24292e",
+  statusBar: {
+    padding: 8,
+    borderRadius: 4,
+    minWidth: 120,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  connectionStatus: {
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 16,
+  connected: {
+    backgroundColor: '#28a745',
   },
-  connectionText: {
-    color: "#fff",
+  disconnected: {
+    backgroundColor: '#dc3545',
+  },
+  statusText: {
+    color: 'white',
+    fontWeight: 'bold',
     fontSize: 12,
-    fontWeight: "bold",
   },
-  devicesContainer: {
+  screenContainer: {
     flex: 1,
+    backgroundColor: '#f5f8fa',
   },
-  devicesContent: {
-    padding: 16,
+  screenTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#0066cc',
   },
-  deviceCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 16,
+  loadingContainer: {
+    padding: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: '#6c757d',
+  },
+  messageContainer: {
+    padding: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  messageText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#6c757d',
+    marginBottom: 8,
+  },
+  messageSubtext: {
+    fontSize: 14,
+    color: '#6c757d',
+  },
+  selectDeviceContainer: {
+    marginBottom: 24,
+  },
+  selectDeviceLabel: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 12,
+    color: '#0099ff',
+    paddingLeft: 4,
+  },
+  pickerOuterContainer: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    borderRadius: 8,
+    marginHorizontal: 4,
+  },
+  pickerContainer: {
     borderWidth: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.7)",
-    ...Platform.select({
-      ios: {
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 3,
-      },
-    }),
+    borderColor: '#e0e0e0',
+    borderRadius: 8,
+    backgroundColor: 'white',
+    overflow: 'hidden',
   },
-  deviceInfo: {
-    flexDirection: "row",
-    alignItems: "center",
+  devicePicker: {
+    height: 50,
+    width: '100%',
   },
-  deviceIcon: {
+  deviceInfoContainer: {
+    backgroundColor: 'white',
+    borderRadius: 8,
+    padding: 0,
+    marginBottom: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    overflow: 'hidden',
+    marginHorizontal: 4,
+  },
+  deviceInfoTable: {
+    width: '100%',
+  },
+  deviceInfoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  deviceInfoLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#666',
+  },
+  deviceInfoValue: {
+    fontSize: 14,
+    color: '#333',
+    fontWeight: '500',
+  },
+  deviceIdHighlight: {
+    color: '#0099ff',
+    fontWeight: 'bold',
+  },
+  statusContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  statusValueText: {
+    fontWeight: 'bold',
+  },
+  statusTextOnline: {
+    color: '#28a745',
+  },
+  statusTextOffline: {
+    color: '#dc3545',
+  },
+  statusTextUnreachable: {
+    color: '#ffc107',
+  },
+  deviceStatus: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    marginLeft: 8,
+  },
+  deviceOnline: {
+    backgroundColor: '#28a745',
+  },
+  deviceOffline: {
+    backgroundColor: '#dc3545',
+  },
+  relayContainer: {
+    marginBottom: 16,
+  },
+  relayGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginHorizontal: -8,
+  },
+  relayCardContainer: {
+    width: '50%',
+    padding: 8,
+  },
+  relayCard: {
+    backgroundColor: 'white',
+    borderRadius: 8,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.41,
+    elevation: 2,
+    minHeight: 90,
+  },
+  relayCardOn: {
+    borderLeftWidth: 4,
+    borderLeftColor: '#28a745',
+  },
+  relayCardOff: {
+    borderLeftWidth: 4,
+    borderLeftColor: '#dc3545',
+  },
+  relayDisabled: {
+    opacity: 0.5,
+  },
+  relayIconContainer: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
+    backgroundColor: '#f0f0f0',
+    alignItems: 'center',
+    justifyContent: 'center',
     marginRight: 12,
   },
-  deviceName: {
+  powerIcon: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+  },
+  powerIconOn: {
+    borderColor: '#28a745',
+    backgroundColor: '#28a745',
+  },
+  powerIconOff: {
+    borderColor: '#dc3545',
+    backgroundColor: 'transparent',
+  },
+  relayTextContainer: {
+    flex: 1,
+  },
+  relayName: {
     fontSize: 16,
-    fontWeight: "600",
-    color: "#24292e",
+    fontWeight: 'bold',
+    marginBottom: 4,
+    color: '#333',
+  },
+  relayStateText: {
+    fontSize: 14,
+    fontWeight: 'bold',
     marginBottom: 4,
   },
-  deviceStatus: {
-    fontSize: 14,
-    color: "#586069",
+  stateTextOn: {
+    color: '#28a745',
   },
-  logContainer: {
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    padding: 16,
-    marginTop: 8,
-    ...Platform.select({
-      ios: {
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
+  stateTextOff: {
+    color: '#dc3545',
   },
-  logTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    marginBottom: 12,
-    color: "#24292e",
-  },
-  logItems: {
-    maxHeight: 200,
-  },
-  logEntry: {
+  relayDescription: {
     fontSize: 12,
-    color: "#586069",
-    marginBottom: 6,
+    color: '#6c757d',
+  },
+  relayStatusContainer: {
+    marginLeft: 8,
+  },
+  relayStatus: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+  },
+  relayOn: {
+    backgroundColor: '#28a745',
+  },
+  relayOff: {
+    backgroundColor: '#dc3545',
+  },
+  activityLogContainer: {
+    backgroundColor: 'white',
+    borderRadius: 8,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.41,
+    elevation: 2,
+  },
+  activityLogTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 12,
+    color: '#333',
+  },
+  logEntryContainer: {
+    borderLeftWidth: 2,
+    borderLeftColor: '#0066cc',
+    paddingLeft: 12,
+    marginBottom: 8,
+    paddingVertical: 4,
   },
   logTime: {
-    color: "#0366d6",
-    fontWeight: "500",
-  },
-  logEmpty: {
     fontSize: 12,
-    color: "#586069",
-    fontStyle: "italic",
+    color: '#6c757d',
+    marginBottom: 2,
+  },
+  logMessage: {
+    fontSize: 14,
+    color: '#333',
   },
 });

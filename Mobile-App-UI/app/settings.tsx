@@ -1,273 +1,291 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Linking } from "react-native";
-import { useState } from "react";
-import { Ionicons } from "@expo/vector-icons";
-import { BlurView } from "expo-blur";
+import React, { useState, useEffect } from "react";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, ActivityIndicator } from "react-native";
+import { useAppContext } from "./context/AppContext";
+import { DEFAULT_SERVER_URL } from "./config/serverConfig";
 
-// Define icon type to match Ionicons
-type IconName = React.ComponentProps<typeof Ionicons>['name'];
-
-export default function SettingsScreen() {
-  const [settings, setSettings] = useState({
-    notifications: true,
-    darkMode: false,
-    hapticFeedback: true,
-    autoConnect: true,
-    debugMode: false,
-  });
-
-  const toggleSetting = (key: keyof typeof settings) => {
-    setSettings((prev) => ({
-      ...prev,
-      [key]: !prev[key],
-    }));
-  };
-
-  const SettingItem = ({ 
-    icon, 
-    title, 
-    description, 
-    toggleKey, 
-    value 
-  }: { 
-    icon: IconName; 
-    title: string; 
-    description: string; 
-    toggleKey: keyof typeof settings; 
-    value: boolean; 
-  }) => (
-    <View style={styles.settingItem}>
-      <View style={styles.settingInfo}>
-        <View style={styles.iconContainer}>
-          <Ionicons name={icon} size={22} color="#fff" />
-        </View>
-        <View>
-          <Text style={styles.settingTitle}>{title}</Text>
-          <Text style={styles.settingDescription}>{description}</Text>
-        </View>
-      </View>
-      <Switch
-        value={value}
-        onValueChange={() => toggleSetting(toggleKey)}
-        trackColor={{ false: "#767577", true: "#81b0ff" }}
-        thumbColor={value ? "#0366d6" : "#f4f3f4"}
-        ios_backgroundColor="#3e3e3e"
-      />
+// Connection status bar component
+function ConnectionStatusBar() {
+  const { isConnected } = useAppContext();
+  
+  return (
+    <View style={[styles.statusBar, isConnected ? styles.connected : styles.disconnected]}>
+      <Text style={styles.statusText}>
+        {isConnected ? 'Connected to server' : 'Disconnected from server'}
+      </Text>
     </View>
   );
+}
+
+export default function SettingsScreen() {
+  const { serverUrl, setServerUrl, isConnected, connect, disconnect } = useAppContext();
+  const [inputUrl, setInputUrl] = useState(serverUrl || DEFAULT_SERVER_URL);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Update input when serverUrl changes
+  useEffect(() => {
+    if (serverUrl) {
+      setInputUrl(serverUrl);
+    }
+  }, [serverUrl]);
+
+  // Handle server URL update
+  const handleUpdateServerUrl = async () => {
+    // Validate URL format
+    if (!inputUrl.startsWith('http://') && !inputUrl.startsWith('https://')) {
+      setError('URL must start with http:// or https://');
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      setError(null);
+      await setServerUrl(inputUrl);
+      Alert.alert('Success', 'Server URL updated successfully');
+    } catch (error) {
+      console.error('Failed to update server URL:', error);
+      setError('Failed to update server URL. Please check the URL and try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Reset to default URL
+  const handleResetToDefault = () => {
+    setInputUrl(DEFAULT_SERVER_URL);
+  };
+
+  // Handle connection toggle
+  const handleConnectionToggle = async () => {
+    if (isConnected) {
+      disconnect();
+    } else {
+      try {
+        setIsLoading(true);
+        await connect();
+      } catch (error) {
+        console.error('Failed to connect:', error);
+        Alert.alert('Connection Error', 'Failed to connect to the server. Please check your settings and try again.');
+      } finally {
+        setIsLoading(false);
+      }
+    }
+  };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.header}>Settings</Text>
+    <View style={styles.container}>
+      <ConnectionStatusBar />
+      <ScrollView style={styles.scrollContainer}>
+      <Text style={styles.title}>Settings</Text>
       
-      <BlurView intensity={80} tint="light" style={styles.section}>
-        <Text style={styles.sectionTitle}>App Preferences</Text>
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Server Connection</Text>
         
-        <SettingItem
-          icon={"notifications" as IconName}
-          title="Notifications"
-          description="Receive alerts for device status changes"
-          toggleKey="notifications"
-          value={settings.notifications}
-        />
-        
-        <SettingItem
-          icon={"moon" as IconName}
-          title="Dark Mode"
-          description="Switch to dark color theme"
-          toggleKey="darkMode"
-          value={settings.darkMode}
-        />
-        
-        <SettingItem
-          icon={"hand-right" as IconName} 
-          title="Haptic Feedback"
-          description="Vibration when toggling controls"
-          toggleKey="hapticFeedback"
-          value={settings.hapticFeedback}
-        />
-      </BlurView>
-      
-      <BlurView intensity={80} tint="light" style={styles.section}>
-        <Text style={styles.sectionTitle}>Connection</Text>
-        
-        <View style={styles.serverInfo}>
-          <Text style={styles.serverLabel}>Server URL</Text>
-          <Text style={styles.serverValue}>http://54.226.69.130:3000</Text>
+        <View style={styles.formGroup}>
+          <Text style={styles.label}>Server URL</Text>
+          <TextInput
+            style={styles.input}
+            value={inputUrl}
+            onChangeText={setInputUrl}
+            placeholder="http://server-address:port"
+            autoCapitalize="none"
+            autoCorrect={false}
+            keyboardType="url"
+          />
+          {error && <Text style={styles.errorText}>{error}</Text>}
         </View>
         
-        <SettingItem
-          icon={"flash" as IconName}
-          title="Auto Connect"
-          description="Connect to server automatically on startup"
-          toggleKey="autoConnect"
-          value={settings.autoConnect}
-        />
-        
-        <SettingItem
-          icon={"bug" as IconName}
-          title="Debug Mode"
-          description="Show detailed logs and connection info"
-          toggleKey="debugMode"
-          value={settings.debugMode}
-        />
-      </BlurView>
+        <View style={styles.buttonRow}>
+          <TouchableOpacity 
+            style={[styles.button, styles.secondaryButton]} 
+            onPress={handleResetToDefault}
+            disabled={isLoading}
+          >
+            <Text style={styles.secondaryButtonText}>Reset to Default</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={[styles.button, styles.primaryButton]} 
+            onPress={handleUpdateServerUrl}
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <ActivityIndicator color="white" size="small" />
+            ) : (
+              <Text style={styles.primaryButtonText}>Update URL</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      </View>
       
-      <BlurView intensity={80} tint="light" style={styles.section}>
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Connection Status</Text>
+        
+        <View style={styles.statusContainer}>
+          <View style={[styles.statusIndicator, isConnected ? styles.connectionStatusConnected : styles.connectionStatusDisconnected]} />
+          <Text style={styles.connectionStatusText}>
+            {isConnected ? 'Connected to server' : 'Disconnected from server'}
+          </Text>
+        </View>
+        
+        <TouchableOpacity 
+          style={[styles.button, isConnected ? styles.dangerButton : styles.successButton]} 
+          onPress={handleConnectionToggle}
+          disabled={isLoading}
+        >
+          {isLoading ? (
+            <ActivityIndicator color="white" size="small" />
+          ) : (
+            <Text style={styles.buttonText}>
+              {isConnected ? 'Disconnect' : 'Connect'}
+            </Text>
+          )}
+        </TouchableOpacity>
+      </View>
+      
+      <View style={styles.section}>
         <Text style={styles.sectionTitle}>About</Text>
-        
-        <View style={styles.aboutItem}>
-          <Text style={styles.aboutLabel}>App Version</Text>
-          <Text style={styles.aboutValue}>1.0.0</Text>
-        </View>
-        
-        <View style={styles.aboutItem}>
-          <Text style={styles.aboutLabel}>Device Name</Text>
-          <Text style={styles.aboutValue}>Homato Control</Text>
-        </View>
-        
-        <TouchableOpacity style={styles.aboutButton}>
-          <Ionicons name={"help-circle" as IconName} size={18} color="#0366d6" />
-          <Text style={styles.aboutButtonText}>Help & Support</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity style={styles.aboutButton}>
-          <Ionicons name={"information-circle" as IconName} size={18} color="#0366d6" />
-          <Text style={[styles.aboutButtonText, {textDecorationLine: 'underline'}]} onPress={() => Linking.openURL('http://54.226.69.130:3000')}>Server URL</Text>
-        </TouchableOpacity>
-      </BlurView>
-      
-      <TouchableOpacity style={styles.resetButton}>
-        <Text style={styles.resetButtonText}>Reset All Settings</Text>
-      </TouchableOpacity>
-      
-      <Text style={styles.footer}>
-        Homato Control System v1.0.0
-      </Text>
+        <Text style={styles.aboutText}>Homato - Home Automation Tool</Text>
+        <Text style={styles.versionText}>Version 1.0.0</Text>
+      </View>
     </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f6f8fa",
+    backgroundColor: '#f8f9fa',
   },
-  content: {
+  scrollContainer: {
+    flex: 1,
     padding: 16,
-    paddingBottom: 32,
   },
-  header: {
+  statusBar: {
+    padding: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  connected: {
+    backgroundColor: '#28a745',
+  },
+  disconnected: {
+    backgroundColor: '#dc3545',
+  },
+  statusText: {
+    color: 'white',
+    fontWeight: 'bold',
+  },
+  title: {
     fontSize: 24,
-    fontWeight: "bold",
-    color: "#24292e",
+    fontWeight: 'bold',
     marginBottom: 24,
   },
   section: {
-    borderRadius: 12,
-    marginBottom: 24,
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: "#e1e4e8",
+    backgroundColor: 'white',
+    borderRadius: 8,
     padding: 16,
-    backgroundColor: "rgba(255, 255, 255, 0.8)",
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.41,
+    elevation: 2,
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: "600",
-    color: "#24292e",
+    fontWeight: 'bold',
     marginBottom: 16,
   },
-  settingItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#eaecef",
+  formGroup: {
+    marginBottom: 16,
   },
-  settingInfo: {
-    flexDirection: "row",
-    alignItems: "center",
-    flex: 1,
-    marginRight: 16,
-  },
-  iconContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "#0366d6",
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 12,
-  },
-  settingTitle: {
-    fontSize: 16,
-    fontWeight: "500",
-    color: "#24292e",
-    marginBottom: 2,
-  },
-  settingDescription: {
+  label: {
     fontSize: 14,
-    color: "#586069",
+    fontWeight: 'bold',
+    marginBottom: 8,
+    color: '#495057',
   },
-  serverInfo: {
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#eaecef",
-  },
-  serverLabel: {
-    fontSize: 14,
-    color: "#586069",
-    marginBottom: 4,
-  },
-  serverValue: {
+  input: {
+    borderWidth: 1,
+    borderColor: '#ced4da',
+    borderRadius: 4,
+    padding: 12,
     fontSize: 16,
-    fontWeight: "500",
-    color: "#24292e",
+    backgroundColor: '#fff',
   },
-  aboutItem: {
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#eaecef",
-  },
-  aboutLabel: {
-    fontSize: 14,
-    color: "#586069",
-    marginBottom: 4,
-  },
-  aboutValue: {
-    fontSize: 16,
-    fontWeight: "500",
-    color: "#24292e",
-  },
-  aboutButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#eaecef",
-  },
-  aboutButtonText: {
-    marginLeft: 8,
-    fontSize: 16,
-    color: "#0366d6",
-  },
-  resetButton: {
-    padding: 16,
-    backgroundColor: "#ffdce0",
-    borderRadius: 8,
-    alignItems: "center",
+  errorText: {
+    color: '#dc3545',
     marginTop: 8,
+    fontSize: 14,
   },
-  resetButtonText: {
-    color: "#d73a49",
-    fontWeight: "600",
+  buttonRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  button: {
+    borderRadius: 4,
+    padding: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: 8,
+  },
+  primaryButton: {
+    backgroundColor: '#007bff',
+    flex: 1,
+    marginLeft: 8,
+  },
+  secondaryButton: {
+    backgroundColor: '#f8f9fa',
+    borderWidth: 1,
+    borderColor: '#ced4da',
+    flex: 1,
+    marginRight: 8,
+  },
+  successButton: {
+    backgroundColor: '#28a745',
+  },
+  dangerButton: {
+    backgroundColor: '#dc3545',
+  },
+  primaryButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+  },
+  secondaryButtonText: {
+    color: '#495057',
+  },
+  buttonText: {
+    color: 'white',
+    fontWeight: 'bold',
+  },
+  statusContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  statusIndicator: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    marginRight: 8,
+  },
+  connectionStatusConnected: {
+    backgroundColor: '#28a745',
+  },
+  connectionStatusDisconnected: {
+    backgroundColor: '#dc3545',
+  },
+  connectionStatusText: {
     fontSize: 16,
   },
-  footer: {
-    marginTop: 24,
-    textAlign: "center",
-    fontSize: 14,
-    color: "#6a737d",
+  aboutText: {
+    fontSize: 16,
+    marginBottom: 8,
   },
-}); 
+  versionText: {
+    fontSize: 14,
+    color: '#6c757d',
+  },
+});
