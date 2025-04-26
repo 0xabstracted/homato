@@ -74,6 +74,43 @@ Homato is a complete home automation solution that allows you to control various
    sudo docker run -d -it -p 3000:3000 --name appc app
    ```
 
+### Database Setup
+
+1. Install MongoDB:
+   ```bash
+   # Ubuntu/Debian
+   sudo apt update
+   sudo apt install docker docker-compose
+
+   # macOS with Homebrew
+   brew tap mongodb/brew
+   brew install docker
+   ```
+
+2. Start MongoDB service:
+   ```bash
+   # to start all the services in compose file.
+   docker-compose up -d 
+
+   # to start only the mongodb 
+   docker-compose up -d  mongodb
+   ```
+
+3. Set environment variables:
+   ```bash
+   # Add to your .env file
+   MONGODB_URI=mongodb://admin:password123@localhost:27000/homato?authSource=admin 
+   ```
+
+4. Verify connection:
+   ```bash
+   # The app should connect automatically on npm start
+   npm run dev
+   # Or test manually (need to install Mongosh):
+   mongosh mongodb://admin:password123@localhost:27000/homato?authSource=admin 
+   ```
+
+
 ### Firmware Setup
 
 1. Open the Arduino IDE
