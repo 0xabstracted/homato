@@ -74,18 +74,17 @@ mqttClient.on('connect', () => {
   console.log(`MQTT Client ID: ${MQTT_CLIENT_ID}`);
   console.log(`MQTT Host: ${MQTT_HOST}:${MQTT_PORT}`);
 
-  // Subscribe to each relay topic individually
-  for (let i = 1; i <= RELAYS_PER_DEVICE; i++) {
-    mqttClient.subscribe(`+/relay${i}`, { qos: 2 }, (err, granted) => {
-      if (err) {
-        console.error(`Error subscribing to relay${i} topics:`, err);
-      } else {
-        console.log(`Successfully subscribed to relay${i} topics:`, granted);
-      }
-    });
-  }
+  // Subscribe to relay topics with new format (homato/deviceId/relay/number)
+  mqttClient.subscribe('homato/+/relay/#', { qos: 2 }, (err, granted) => {
+    if (err) {
+      console.error('Error subscribing to relay topics:', err);
+    } else {
+      console.log('Successfully subscribed to relay topics:', granted);
+    }
+  });
 
-  mqttClient.subscribe('+/availability', { qos: 2 }, (err, granted) => {
+  // Subscribe to availability topics with new format (homato/deviceId/availability)
+  mqttClient.subscribe('homato/+/availability', { qos: 2 }, (err, granted) => {
     if (err) {
       console.error('Error subscribing to availability topics:', err);
     } else {
@@ -106,12 +105,22 @@ mqttClient.on('subscribe', function (topic, granted) {
 // Process a topic to extract deviceId and relay number
 function processTopic(topic) {
   const parts = topic.split('/');
-  if (parts.length !== 2) return null;
-
-  const deviceId = parts[0];
-  const endpoint = parts[1];
-
-  return { deviceId, endpoint };
+  
+  // Handle new topic format: homato/deviceId/relay/number
+  if (parts.length === 4 && parts[0] === 'homato' && parts[2] === 'relay') {
+    const deviceId = parts[1];
+    const endpoint = `relay${parts[3]}`; // Convert 'relay/1' to 'relay1'
+    return { deviceId, endpoint };
+  }
+  
+  // Handle new availability format: homato/deviceId/availability
+  if (parts.length === 3 && parts[0] === 'homato' && parts[2] === 'availability') {
+    const deviceId = parts[1];
+    const endpoint = 'availability';
+    return { deviceId, endpoint };
+  }
+  
+  return null;
 }
 
 // Initialize device structure if it doesn't exist
@@ -160,13 +169,21 @@ function broadcastDeviceState(deviceId) {
 
 // Handle MQTT messages
 mqttClient.on('message', (topic, message) => {
-  const messageStr = message.toString();
   const now = new Date();
   const istTime = new Date(now.getTime() + (5.5 * 60 * 60 * 1000));
-  console.log(`Received message on ${topic}: ${messageStr} at ${istTime.toISOString().replace('T', ' ').substring(0, 19)}`);
-
-  // Log raw topic parts for debugging
-  console.log(`Topic parts: ${JSON.stringify(topic.split('/'))}`);
+  
+  let messageStr;
+  let jsonMessage = null;
+  try {
+    // Try to parse as JSON first
+    jsonMessage = JSON.parse(message.toString());
+    messageStr = JSON.stringify(jsonMessage);
+    console.log(`Received JSON message on ${topic}: ${messageStr} at ${istTime.toISOString().replace('T', ' ').substring(0, 19)}`);
+  } catch (e) {
+    // Fallback to string if not JSON
+    messageStr = message.toString();
+    console.log(`Received message on ${topic}: ${messageStr} at ${istTime.toISOString().replace('T', ' ').substring(0, 19)}`);
+  }
 
   const topicInfo = processTopic(topic);
   if (!topicInfo) {
@@ -204,12 +221,41 @@ mqttClient.on('message', (topic, message) => {
     }
   } else if (endpoint.startsWith('relay')) {
     // Handle relay state updates
-    console.log(`Updating relay state: ${deviceId}/${endpoint} -> ${messageStr}`);
-    device.relays[endpoint] = messageStr;
+    console.log(`Updating relay state: ${deviceId}/${endpoint}`);
+    
+    let state;
+    try {
+      // Try to extract state from JSON payload
+      if (jsonMessage && jsonMessage.state) {
+        state = jsonMessage.state;
+        
+        // Check if this message originated from this backend (has device_id in payload)
+        const messageDeviceId = jsonMessage.device_id;
+        const messageSource = jsonMessage.source;
+        
+        // Only ignore messages specifically marked as from the backend
+        // Messages from 'device' should always be processed
+        if (messageSource === 'backend' && messageDeviceId === deviceId) {
+          console.log(`Ignoring message that originated from this backend for ${deviceId}/${endpoint}`);
+          return; // Skip processing to avoid feedback loops
+        }
+      } else {
+        // Fallback to legacy string format
+        state = messageStr;
+      }
+    } catch (e) {
+      // Fallback to legacy string format
+      state = messageStr;
+    }
+    
+    // Update device state in registry
+    device.relays[endpoint] = state;
+    
+    // Broadcast to connected clients
     io.emit('deviceUpdate', {
       deviceId,
       relay: endpoint,
-      state: messageStr
+      state: state
     });
 
     // If this is a new relay state, also broadcast the full device state
@@ -223,30 +269,49 @@ mqttClient.on('message', (topic, message) => {
 function executeCommand(deviceId, relay) {
   const state = pendingCommands[deviceId][relay];
   if (state !== null) {
-    const topic = `${deviceId}/${relay}`;
-
-    // Publish to MQTT with QoS 1 to ensure delivery
-    mqttClient.publish(topic, state, { qos: 2 });
-
-    // Update local state
-    if (deviceRegistry[deviceId]) {
-      deviceRegistry[deviceId].relays[relay] = state;
-    }
-
-    // Broadcast to all clients
-    io.emit('deviceUpdate', {
-      deviceId,
-      relay,
-      state
+    // Extract relay number from the relay name (e.g., "relay1" => "1")
+    const relayNumber = relay.replace('relay', '');
+    
+    // Format for new topic structure: homato/{deviceId}/relay/{relayNumber}
+    const topic = `homato/${deviceId}/relay/${relayNumber}`;
+    
+    // Create JSON payload including the source identifier
+    const payload = JSON.stringify({
+      state: state,
+      device_id: deviceId,
+      source: 'backend' // Add source identifier to indicate this came from the backend
     });
 
-    // Clear the pending command
-    pendingCommands[deviceId][relay] = null;
-    console.log(`Executed throttled command: ${deviceId}/${relay} -> ${state}`);
+    // Publish to MQTT with QoS 2 to ensure delivery
+    mqttClient.publish(topic, payload, { qos: 2 }, (err) => {
+      if (err) {
+        console.error(`Failed to publish command to ${topic}:`, err);
+      } else {
+        console.log(`Command published successfully to ${topic}: ${payload}`);
+        
+        // Since we're publishing the state change, update the device registry
+        // to avoid processing the message again when we receive it back
+        if (deviceRegistry[deviceId] && deviceRegistry[deviceId].relays) {
+          deviceRegistry[deviceId].relays[relay] = state;
+        }
+        
+        // Broadcast to all clients
+        io.emit('deviceUpdate', {
+          deviceId,
+          relay,
+          state
+        });
+      }
+      
+      // Clear pending command and timer
+      pendingCommands[deviceId][relay] = null;
+      deviceTimers[deviceId][relay] = null;
+    });
+    
+    return null;
   }
-
-  // Clear the timer
-  deviceTimers[deviceId][relay] = null;
+  
+  return setTimeout(() => executeCommand(deviceId, relay), throttleTime);
 }
 
 // Handle MQTT reconnection

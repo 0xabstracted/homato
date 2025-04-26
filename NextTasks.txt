@@ -1,0 +1,27 @@
+1. I want the MQTT credentials hostname, port also in EEPROM and read it during setup(). Do you sugges if I can do that froma security perspetive and industry standards to store the these deatils in the best way possible as these are confidential.Similarly analyze what secrests of this can be written in EEPROM and only read during setup(). 
+// Device Identifier - Unique ID for each device
+const char* DEVICE_ID = "st-000002";
+
+// Number of relays on this device
+const int NUM_RELAYS = 8;
+
+// BLE Service and Characteristic UUIDs
+#define SERVICE_UUID           "4fafc201-1fb5-459e-8fcc-c5c9c331914b"
+#define DEVICEINFO_CHAR_UUID  "beb5483e-36e1-4688-b7f5-ea07361b26a8"
+#define WIFI_CONFIG_CHAR_UUID "beb5483e-36e1-4688-b7f5-ea07361b26a9"
+Also does it make sense to 
+
+2. Can we make a implemenataion where in wifi mode the GPIO pin 2 stays on continuosly and in BLE mode it blinks for 1-2 sec. Maintain consitent format in the naming.
+#define SwitchPin6 32  //D32
+#define SwitchPin7 15  //D15
+#define SwitchPin8 4   //D4
+
+#define wifiLed    2   //D2
+
+
+// Button for BLE pairing mode
+#define BLE_BUTTON_PIN 0  // Usually GPIO0 is the BOOT button on most ESP32 boards
+#define BLE_LED_PIN 2     // Usually the built-in LED
+3. In @readRelayStatesFromEEPROM , is there no need for type for Relay STate? Correct the function properly. Basically refactor the whole readRelayStatesFromEEPROM function.
+4. Store ssid, password connection status upon success or failure and store in eeprom to give it back to mobile app when requested.
+5. I want evry other module like wifi and thus MQTT to be stopped when startBLEMode() function is called and until the wifi credentials are sent by the mobile app. 
