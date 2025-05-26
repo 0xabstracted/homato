@@ -3,7 +3,24 @@ const User = require('../models/user');
 // Register a new user
 const signup = async (req, res) => {
     try {
-        const user = new User(req.body);
+        if (!req.body.name || !req.body.email || !req.body.password || !req.body.phone) {
+            return res.status(400).json({ error: 'Name, email, password and phone are required' });
+        }
+        const checkUser = await User.findOne({ email: req.body.email });
+        if (checkUser) {
+            return res.status(400).json({ error: 'Email already exists' });
+        }
+        let body = {
+            name: req.body.name,
+            email: req.body.email,
+            password: req.body.password,
+            phone: req.body.phone,
+            is_active: true,
+            email_verified: false,
+            phone_verified: false,
+            role: req.body.role || 'user',
+        }
+        const user = new User(body);
         const token = await user.generateAuthToken();
         res.status(201).json({ user, token });
     } catch (error) {

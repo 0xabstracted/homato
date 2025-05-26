@@ -2,6 +2,8 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const validator = require('validator');
+const dotenv = require('dotenv');
+dotenv.config();
 
 const userSchema = new mongoose.Schema({
     name: {
@@ -41,6 +43,23 @@ const userSchema = new mongoose.Schema({
         //     }
         // }
     },
+    is_active: {
+        type: Boolean,
+        default: true
+    },
+    email_verified: {
+        type: Boolean,
+        default: false
+    },
+    phone_verified: {
+        type: Boolean,
+        default: false
+    },
+    role: {
+        type: String,
+        enum: ['admin', 'user', 'superadmin', 'factory'],
+        default: 'user'
+    },
     tokens: [{
         token: {
             type: String,
@@ -54,7 +73,7 @@ const userSchema = new mongoose.Schema({
 // Generate auth token
 userSchema.methods.generateAuthToken = async function () {
     const user = this;
-    const token = jwt.sign({ _id: user._id.toString() }, process.env.JWT_SECRET);
+    const token = jwt.sign({ _id: user._id.toString(), role: user.role, iat: Math.floor(Date.now() / 1000) }, process.env.JWT_SECRET);
     user.tokens = user.tokens.concat({ token });
     await user.save();
     return token;

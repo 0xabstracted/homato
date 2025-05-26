@@ -1,29 +1,23 @@
 const mongoose = require('mongoose');
 
 const activitySchema = new mongoose.Schema({
-    user: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User',
-        required: true
-    },
-    device: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Device',
-        required: true
-    },
-    switch: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Switch',
-        required: true
-    },
-    action: {
+    device_id: {
         type: String,
         required: true,
-        enum: ['ON', 'OFF']
+        trim: true
+    },
+    text: {
+        type: String,
+        required: true
+    },
+    updated_by: {
+        type: String,
+        required: true,
+        enum: ['user', 'system', 'hardware']
     }
 }, {
     timestamps: true
 });
 
-const Activity = mongoose.model('activity', activitySchema);
+const Activity = mongoose.model('Activity', activitySchema);
 module.exports = Activity; 

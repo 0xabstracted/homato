@@ -8,8 +8,7 @@ const path = require('path');
 const fs = require('fs');
 const dotenv = require('dotenv');
 const connectDB = require('./src/config/database');
-const authRoutes = require('./src/routes/auth');
-const deviceRoutes = require('./src/routes/device');
+const routes = require('./src/routes/index');
 
 // Load environment variables from .env file
 dotenv.config();
@@ -30,8 +29,7 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/devices', deviceRoutes);
+app.use('/v1', routes);
 
 // Environment variables (set these with actual values or use a .env file with dotenv)
 const PORT = process.env.PORT || 3000;
@@ -66,7 +64,7 @@ const mqttClient = mqtt.connect(`mqtts://${MQTT_HOST}:${MQTT_PORT}`, {
 });
 
 // Connect to MongoDB
-// connectDB();
+connectDB();
 
 // Handle MQTT connection
 mqttClient.on('connect', () => {
