@@ -27,6 +27,11 @@ class _BLEScreenState extends State<BLEScreen> {
   // Stream subscription for scanning
   StreamSubscription<List<ScanResult>>? scanSubscription;
 
+  // Status tracking
+  bool isBluetoothEnabled = false;
+  bool isLocationEnabled = false;
+  bool hasPermissions = false;
+
   @override
   void initState() {
     super.initState();
@@ -44,6 +49,48 @@ class _BLEScreenState extends State<BLEScreen> {
 
   // Request required permissions
   Future<void> _requestPermissions() async {
+    // Check if Bluetooth is enabled
+    BluetoothAdapterState bluetoothState =
+        await FlutterBluePlus.adapterState.first;
+    setState(() {
+      isBluetoothEnabled = bluetoothState == BluetoothAdapterState.on;
+    });
+
+    if (bluetoothState != BluetoothAdapterState.on) {
+      if (mounted) {
+        String message;
+        switch (bluetoothState) {
+          case BluetoothAdapterState.off:
+            message = 'Bluetooth is turned off. Please enable Bluetooth.';
+            break;
+          case BluetoothAdapterState.unavailable:
+            message = 'Bluetooth is not available on this device.';
+            break;
+          case BluetoothAdapterState.unauthorized:
+            message = 'Bluetooth access is not authorized.';
+            break;
+          case BluetoothAdapterState.turningOn:
+            message = 'Bluetooth is turning on. Please wait...';
+            break;
+          case BluetoothAdapterState.turningOff:
+            message = 'Bluetooth is turning off.';
+            break;
+          default:
+            message = 'Bluetooth is not ready. Please enable Bluetooth.';
+        }
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(message), backgroundColor: Colors.red),
+        );
+      }
+    }
+
+    // Check and request location permission first
+    PermissionStatus locationStatus = await Permission.location.status;
+    if (!locationStatus.isGranted) {
+      locationStatus = await Permission.location.request();
+    }
+
     // Request Bluetooth permissions
     Map<Permission, PermissionStatus> statuses =
         await [
@@ -53,20 +100,140 @@ class _BLEScreenState extends State<BLEScreen> {
           Permission.location,
         ].request();
 
-    if (statuses.values.any((status) => status != PermissionStatus.granted)) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Permissions not granted'),
-            backgroundColor: Colors.red,
+    // Check if any critical permissions are missing
+    List<String> deniedPermissions = [];
+
+    if (statuses[Permission.location] != PermissionStatus.granted) {
+      deniedPermissions.add('Location');
+    }
+    if (statuses[Permission.bluetoothScan] != PermissionStatus.granted) {
+      deniedPermissions.add('Bluetooth Scan');
+    }
+    if (statuses[Permission.bluetoothConnect] != PermissionStatus.granted) {
+      deniedPermissions.add('Bluetooth Connect');
+    }
+
+    setState(() {
+      hasPermissions = deniedPermissions.isEmpty;
+    });
+
+    if (deniedPermissions.isNotEmpty && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Missing permissions: ${deniedPermissions.join(', ')}'),
+          backgroundColor: Colors.red,
+          action: SnackBarAction(
+            label: 'Settings',
+            onPressed: () => openAppSettings(),
           ),
-        );
-      }
+        ),
+      );
+    }
+
+    // Also check if location services are enabled
+    bool serviceEnabled = await Permission.location.serviceStatus.isEnabled;
+    setState(() {
+      isLocationEnabled = serviceEnabled;
+    });
+
+    if (!serviceEnabled && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Location services must be enabled for Bluetooth scanning',
+          ),
+          backgroundColor: Colors.orange,
+        ),
+      );
     }
   }
 
   // Start scanning for BLE devices
-  void startScan() {
+  Future<void> startScan() async {
+    // Check if Bluetooth is enabled first
+    BluetoothAdapterState bluetoothState =
+        await FlutterBluePlus.adapterState.first;
+    if (bluetoothState != BluetoothAdapterState.on) {
+      if (mounted) {
+        String message;
+        switch (bluetoothState) {
+          case BluetoothAdapterState.off:
+            message = 'Bluetooth is turned off. Please enable Bluetooth.';
+            break;
+          case BluetoothAdapterState.unavailable:
+            message = 'Bluetooth is not available on this device.';
+            break;
+          case BluetoothAdapterState.unauthorized:
+            message = 'Bluetooth access is not authorized.';
+            break;
+          case BluetoothAdapterState.turningOn:
+            message = 'Bluetooth is turning on. Please wait...';
+            break;
+          case BluetoothAdapterState.turningOff:
+            message = 'Bluetooth is turning off.';
+            break;
+          default:
+            message = 'Bluetooth is not ready. Please enable Bluetooth.';
+        }
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(message), backgroundColor: Colors.red),
+        );
+      }
+      return;
+    }
+
+    // Check location permission first
+    PermissionStatus locationStatus = await Permission.location.status;
+
+    if (!locationStatus.isGranted) {
+      locationStatus = await Permission.location.request();
+      if (!locationStatus.isGranted) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Location permission is required for Bluetooth scanning',
+              ),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+    }
+
+    // Check if location services are enabled
+    bool serviceEnabled = await Permission.location.serviceStatus.isEnabled;
+    if (!serviceEnabled) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please enable location services in device settings'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+      return;
+    }
+
+    // For Android 12+, also check Bluetooth scan permission
+    if (await Permission.bluetoothScan.isDenied) {
+      PermissionStatus bluetoothScanStatus =
+          await Permission.bluetoothScan.request();
+      if (!bluetoothScanStatus.isGranted) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Bluetooth scan permission is required'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+    }
+
     setState(() {
       scanResults = [];
       isScanning = true;
@@ -86,8 +253,23 @@ class _BLEScreenState extends State<BLEScreen> {
       },
     );
 
-    // Start scanning
-    FlutterBluePlus.startScan(timeout: const Duration(seconds: 10));
+    // Start scanning with error handling
+    try {
+      await FlutterBluePlus.startScan(timeout: const Duration(seconds: 10));
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to start scan: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      setState(() {
+        isScanning = false;
+      });
+      return;
+    }
 
     // After 10 seconds, stop scanning
     Future.delayed(const Duration(seconds: 10), () {
@@ -146,6 +328,32 @@ class _BLEScreenState extends State<BLEScreen> {
       appBar: AppBar(title: const Text('BLE Scanner')),
       body: Column(
         children: <Widget>[
+          // Status panel
+          Container(
+            padding: const EdgeInsets.all(12),
+            color: Colors.grey[100],
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                _buildStatusIndicator(
+                  'Bluetooth',
+                  isBluetoothEnabled,
+                  Icons.bluetooth,
+                ),
+                _buildStatusIndicator(
+                  'Location',
+                  isLocationEnabled,
+                  Icons.location_on,
+                ),
+                _buildStatusIndicator(
+                  'Permissions',
+                  hasPermissions,
+                  Icons.security,
+                ),
+              ],
+            ),
+          ),
+
           // Scanning status
           Container(
             padding: const EdgeInsets.all(16),
@@ -194,6 +402,41 @@ class _BLEScreenState extends State<BLEScreen> {
         child: Icon(isScanning ? Icons.stop : Icons.search),
       ),
     );
+  }
+
+  Widget _buildStatusIndicator(String label, bool isEnabled, IconData icon) {
+    return GestureDetector(
+      onTap: _refreshStatus,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: isEnabled ? Colors.green : Colors.red, size: 20),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              color: isEnabled ? Colors.green : Colors.red,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          Container(
+            width: 8,
+            height: 8,
+            margin: const EdgeInsets.only(top: 2),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: isEnabled ? Colors.green : Colors.red,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Refresh status method
+  Future<void> _refreshStatus() async {
+    await _requestPermissions();
   }
 }
 
