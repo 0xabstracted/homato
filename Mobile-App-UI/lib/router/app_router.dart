@@ -4,9 +4,30 @@ import '../widgets/scaffold_with_nav_bar.dart';
 
 // GoRouter configuration
 final GoRouter appRouter = GoRouter(
-  initialLocation: '/home',
+  initialLocation: '/',
   routes: [
-    // Bottom navigation shell route
+    // Splash screen route
+    GoRoute(
+      path: '/',
+      pageBuilder:
+          (context, state) => const NoTransitionPage(child: SplashScreen()),
+    ),
+
+    // Login route
+    GoRoute(
+      path: '/login',
+      pageBuilder:
+          (context, state) => const NoTransitionPage(child: LoginScreen()),
+    ),
+
+    // Signup route
+    GoRoute(
+      path: '/signup',
+      pageBuilder:
+          (context, state) => const NoTransitionPage(child: SignupScreen()),
+    ),
+
+    // Bottom navigation shell route (authenticated routes)
     ShellRoute(
       builder: (context, state, child) {
         return ScaffoldWithNavBar(child: child);

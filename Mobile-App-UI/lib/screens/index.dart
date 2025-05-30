@@ -5,3 +5,6 @@ export 'settings_page.dart';
 export 'ble_screen.dart';
 export 'devices_page.dart';
 export 'device_page.dart';
+export 'splash_screen.dart';
+export 'login_screen.dart';
+export 'signup_screen.dart';

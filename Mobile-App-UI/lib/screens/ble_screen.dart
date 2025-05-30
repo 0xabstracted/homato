@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -494,9 +495,7 @@ class _DeviceScreenState extends State<DeviceScreen> {
     try {
       List<int> value = await characteristic.read();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Read value: ${value.toString()}')),
-        );
+        _showReadDialog(value);
       }
     } catch (e) {
       if (mounted) {
@@ -508,6 +507,50 @@ class _DeviceScreenState extends State<DeviceScreen> {
         );
       }
     }
+  }
+
+  // Show read data dialog
+  void _showReadDialog(List<int> value) {
+    String stringValue = '';
+
+    try {
+      stringValue = utf8.decode(value);
+    } catch (e) {
+      stringValue = 'Unable to decode as UTF-8 string';
+    }
+
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: const Text('Read Value'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Value:',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.grey[100],
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: SelectableText(stringValue),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   // Write to characteristic
@@ -545,8 +588,18 @@ class _DeviceScreenState extends State<DeviceScreen> {
       await characteristic.setNotifyValue(true);
       characteristic.lastValueStream.listen((value) {
         if (mounted) {
+          String displayValue;
+          try {
+            displayValue = utf8.decode(value);
+          } catch (e) {
+            displayValue = 'Unable to decode as UTF-8 string';
+          }
+
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Notification: ${value.toString()}')),
+            SnackBar(
+              content: Text('Notification: $displayValue'),
+              duration: const Duration(seconds: 3),
+            ),
           );
         }
       });
@@ -691,11 +744,18 @@ class _WriteDialogState extends State<WriteDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       title: const Text('Write Value'),
-      content: TextField(
-        controller: _controller,
-        decoration: const InputDecoration(
-          labelText: 'Enter hex values (e.g., 01 02 FF)',
-        ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            controller: _controller,
+            decoration: const InputDecoration(
+              labelText: 'Enter text to send',
+              hintText: 'Hello World',
+            ),
+            maxLines: 3,
+          ),
+        ],
       ),
       actions: <Widget>[
         TextButton(
@@ -705,14 +765,20 @@ class _WriteDialogState extends State<WriteDialog> {
         TextButton(
           child: const Text('WRITE'),
           onPressed: () {
-            // Convert input hex string to list of integers
-            List<int> value =
-                _controller.text
-                    .split(' ')
-                    .map((hex) => int.parse(hex, radix: 16))
-                    .toList();
-            widget.onWrite(value);
-            Navigator.of(context).pop();
+            try {
+              // Convert string to UTF-8 bytes
+              List<int> value = utf8.encode(_controller.text);
+              widget.onWrite(value);
+              Navigator.of(context).pop();
+            } catch (e) {
+              // Show error message
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Invalid input: $e'),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            }
           },
         ),
       ],
