@@ -13,9 +13,9 @@ class ScaffoldWithNavBar extends StatelessWidget {
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
         items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.room), label: 'Rooms'),
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-          BottomNavigationBarItem(icon: Icon(Icons.bluetooth), label: 'BLE'),
-          BottomNavigationBarItem(icon: Icon(Icons.devices), label: 'Devices'),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
         ],
         currentIndex: _calculateSelectedIndex(context),
         onTap: (int idx) => _onItemTapped(idx, context),
@@ -25,28 +25,28 @@ class ScaffoldWithNavBar extends StatelessWidget {
 
   static int _calculateSelectedIndex(BuildContext context) {
     final String location = GoRouterState.of(context).uri.path;
-    if (location.startsWith('/home')) {
+    if (location.startsWith('/rooms')) {
       return 0;
     }
-    if (location.startsWith('/ble')) {
+    if (location.startsWith('/home')) {
       return 1;
     }
-    if (location.startsWith('/devices')) {
+    if (location.startsWith('/profile')) {
       return 2;
     }
-    return 0;
+    return 1; // Default to Home
   }
 
   void _onItemTapped(int index, BuildContext context) {
     switch (index) {
       case 0:
-        GoRouter.of(context).go('/home');
+        GoRouter.of(context).go('/rooms');
         break;
       case 1:
-        GoRouter.of(context).go('/ble');
+        GoRouter.of(context).go('/home');
         break;
       case 2:
-        GoRouter.of(context).go('/devices');
+        GoRouter.of(context).go('/profile');
         break;
     }
   }

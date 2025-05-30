@@ -116,7 +116,7 @@ class _DevicesPageState extends State<DevicesPage> {
                         ],
                       ),
                       onTap: () {
-                        context.go('/devices/device/${device['id']}');
+                        context.go('/rooms/devices/${device['id']}');
                       },
                     ),
                   );

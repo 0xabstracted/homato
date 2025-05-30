@@ -7,12 +7,10 @@
     <list default="true" id="1014ade9-9322-4734-af36-2bf988c6959f" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/lib/router/app_router.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/router/app_router.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/ble_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/ble_screen.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/screens/devices_page.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/devices_page.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/screens/home_page.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home_page.dart" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/lib/screens/index.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/index.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/profile_page.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/profile_page.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/macos/Flutter/GeneratedPluginRegistrant.swift" beforeDir="false" afterPath="$PROJECT_DIR$/macos/Flutter/GeneratedPluginRegistrant.swift" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/pubspec.lock" beforeDir="false" afterPath="$PROJECT_DIR$/pubspec.lock" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/pubspec.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/pubspec.yaml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/widgets/scaffold_with_nav_bar.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/widgets/scaffold_with_nav_bar.dart" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />

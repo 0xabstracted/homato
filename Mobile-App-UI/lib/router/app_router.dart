@@ -33,6 +33,30 @@ final GoRouter appRouter = GoRouter(
         return ScaffoldWithNavBar(child: child);
       },
       routes: [
+        // Rooms tab routes
+        GoRoute(
+          path: '/rooms',
+          pageBuilder:
+              (context, state) => const NoTransitionPage(child: RoomsPage()),
+          routes: [
+            GoRoute(
+              path: '/devices',
+              pageBuilder:
+                  (context, state) =>
+                      const NoTransitionPage(child: DevicesPage()),
+              routes: [
+                GoRoute(
+                  path: '/:id',
+                  pageBuilder:
+                      (context, state) => NoTransitionPage(
+                        child: DevicePage(id: state.pathParameters['id'] ?? ''),
+                      ),
+                ),
+              ],
+            ),
+          ],
+        ),
+
         // Home tab routes
         GoRoute(
           path: '/home',
@@ -40,10 +64,10 @@ final GoRouter appRouter = GoRouter(
               (context, state) => const NoTransitionPage(child: HomePage()),
           routes: [
             GoRoute(
-              path: '/profile',
+              path: '/ble',
               pageBuilder:
                   (context, state) =>
-                      const NoTransitionPage(child: ProfilePage()),
+                      const NoTransitionPage(child: BLEScreen()),
             ),
             GoRoute(
               path: '/settings',
@@ -54,27 +78,11 @@ final GoRouter appRouter = GoRouter(
           ],
         ),
 
-        // BLE tab routes
+        // Profile tab routes
         GoRoute(
-          path: '/ble',
+          path: '/profile',
           pageBuilder:
-              (context, state) => const NoTransitionPage(child: BLEScreen()),
-        ),
-
-        // Devices tab routes
-        GoRoute(
-          path: '/devices',
-          pageBuilder:
-              (context, state) => const NoTransitionPage(child: DevicesPage()),
-          routes: [
-            GoRoute(
-              path: '/device/:id',
-              pageBuilder:
-                  (context, state) => NoTransitionPage(
-                    child: DevicePage(id: state.pathParameters['id'] ?? ''),
-                  ),
-            ),
-          ],
+              (context, state) => const NoTransitionPage(child: ProfilePage()),
         ),
       ],
     ),
