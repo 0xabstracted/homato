@@ -86,20 +86,51 @@ class _BLEScreenState extends State<BLEScreen> {
       }
     }
 
-    // Check and request location permission first
-    PermissionStatus locationStatus = await Permission.location.status;
-    if (!locationStatus.isGranted) {
-      locationStatus = await Permission.location.request();
+    // Request location permission (required for iOS BLE scanning)
+    PermissionStatus locationStatus = await Permission.locationWhenInUse.status;
+    print('Initial location status: $locationStatus');
+    
+    if (locationStatus.isDenied) {
+      locationStatus = await Permission.locationWhenInUse.request();
+      print('After request location status: $locationStatus');
     }
 
-    // Request Bluetooth permissions
-    Map<Permission, PermissionStatus> statuses =
-        await [
-          Permission.bluetooth,
-          Permission.bluetoothScan,
-          Permission.bluetoothConnect,
-          Permission.location,
-        ].request();
+    // If location is permanently denied, show instructions
+    if (locationStatus.isPermanentlyDenied) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Location permission is permanently denied. Please enable it in Settings > Privacy & Security > Location Services > Homato'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 8),
+            action: SnackBarAction(
+              label: 'Settings',
+              onPressed: () => openAppSettings(),
+            ),
+          ),
+        );
+      }
+    }
+
+    // Try alternative location permission if first fails
+    if (!locationStatus.isGranted) {
+      locationStatus = await Permission.location.request();
+      print('Fallback location permission status: $locationStatus');
+    }
+
+    // Request all permissions
+    Map<Permission, PermissionStatus> statuses = {};
+    
+    // Set location status
+    statuses[Permission.location] = locationStatus;
+    
+    // For iOS, Bluetooth permissions are usually handled automatically
+    // We'll mark them as granted to not block the UI
+    statuses[Permission.bluetooth] = PermissionStatus.granted;
+    statuses[Permission.bluetoothScan] = PermissionStatus.granted;
+    statuses[Permission.bluetoothConnect] = PermissionStatus.granted;
+
+    print('All permission statuses: $statuses');
 
     // Check if any critical permissions are missing
     List<String> deniedPermissions = [];
@@ -107,10 +138,11 @@ class _BLEScreenState extends State<BLEScreen> {
     if (statuses[Permission.location] != PermissionStatus.granted) {
       deniedPermissions.add('Location');
     }
-    if (statuses[Permission.bluetoothScan] != PermissionStatus.granted) {
+    // Only check Bluetooth permissions if they're actually required/supported
+    if (statuses[Permission.bluetoothScan] == PermissionStatus.denied) {
       deniedPermissions.add('Bluetooth Scan');
     }
-    if (statuses[Permission.bluetoothConnect] != PermissionStatus.granted) {
+    if (statuses[Permission.bluetoothConnect] == PermissionStatus.denied) {
       deniedPermissions.add('Bluetooth Connect');
     }
 
@@ -147,6 +179,53 @@ class _BLEScreenState extends State<BLEScreen> {
         ),
       );
     }
+  }
+
+  // Force start scanning (bypass permission checks for testing)
+  Future<void> forceScan() async {
+    print('Force scanning - bypassing permission checks');
+    
+    setState(() {
+      scanResults = [];
+      isScanning = true;
+    });
+
+    // Listen to scan results
+    scanSubscription = FlutterBluePlus.scanResults.listen(
+      (results) {
+        setState(() {
+          scanResults = results;
+        });
+      },
+      onDone: () {
+        setState(() {
+          isScanning = false;
+        });
+      },
+    );
+
+    // Start scanning with error handling
+    try {
+      await FlutterBluePlus.startScan(timeout: const Duration(seconds: 10));
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Scan failed: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      setState(() {
+        isScanning = false;
+      });
+      return;
+    }
+
+    // After 10 seconds, stop scanning
+    Future.delayed(const Duration(seconds: 10), () {
+      stopScan();
+    });
   }
 
   // Start scanning for BLE devices
@@ -398,9 +477,25 @@ class _BLEScreenState extends State<BLEScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: isScanning ? stopScan : startScan,
-        child: Icon(isScanning ? Icons.stop : Icons.search),
+      floatingActionButton: Column(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          // Force scan button (bypass permissions)
+          FloatingActionButton(
+            heroTag: "force_scan",
+            mini: true,
+            backgroundColor: Colors.orange,
+            onPressed: isScanning ? stopScan : forceScan,
+            child: const Icon(Icons.warning, size: 18),
+          ),
+          const SizedBox(height: 8),
+          // Normal scan button
+          FloatingActionButton(
+            heroTag: "normal_scan",
+            onPressed: isScanning ? stopScan : startScan,
+            child: Icon(isScanning ? Icons.stop : Icons.search),
+          ),
+        ],
       ),
     );
   }

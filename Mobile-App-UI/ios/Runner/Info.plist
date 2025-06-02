@@ -3,17 +3,11 @@
 <plist version="1.0">
 <dict>
 	<key>NSBluetoothAlwaysUsageDescription</key>
-	<string>Need BLE permission for connecting to devices</string>
+	<string>This app uses Bluetooth to connect to nearby devices</string>
 	<key>NSBluetoothPeripheralUsageDescription</key>
-	<string>Need BLE permission for connecting to devices</string>
+	<string>This app uses Bluetooth to connect to nearby devices</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Need location permission for BLE scanning</string>
-	<key>NSLocationAlwaysUsageDescription</key>
-	<string>Need location permission for BLE scanning</string>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Need location permission for BLE scanning</string>
-	<key>NSLocationAlwaysUsageDescription</key>
-	<string>Need location permission for BLE scanning</string>
+	<string>Location access is needed to scan for Bluetooth devices. This is required by iOS for Bluetooth scanning.</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
