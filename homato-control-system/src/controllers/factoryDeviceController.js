@@ -54,6 +54,13 @@ const addDevice = async (req, res) => {
     }
 }
 
+
+// get all devices from the factory
+
+
+// update device by device id for the factory.
+
+
 module.exports = {
     addDevice,
     isFactory
